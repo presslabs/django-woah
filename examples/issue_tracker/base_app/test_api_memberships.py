@@ -1,13 +1,12 @@
 from rest_framework import status
 from rest_framework.reverse import reverse_lazy
 
-from django_woah.models import Membership, UserGroup, Authorization
+from django_woah.models import Membership, UserGroup, AssignedPerm
 from .authorization import (
-    IssueAuthorizationScheme,
     MembershipAuthorizationScheme,
     AccountAuthorizationScheme,
 )
-from .models import Issue, Project, Account
+from .models import Account
 
 
 def test_list_memberships_as_org_member(api_client, account, organization):
@@ -64,16 +63,16 @@ def test_add_member_to_org_allowed(api_client, account, organization):
         related_user=account, root=root_org_user_group
     )
 
-    Authorization.objects.create(
+    AssignedPerm.objects.create(
         user_group=account_user_group,
-        root=root_org_user_group,
-        role=AccountAuthorizationScheme.Roles.OWNER,
+        owner=organization,
+        perm=AccountAuthorizationScheme.Roles.OWNER,
     )
 
-    Authorization.objects.create(
+    AssignedPerm.objects.create(
         user_group=account_user_group,
-        root=root_org_user_group,
-        role=MembershipAuthorizationScheme.Perms.MEMBERSHIP_CREATE,
+        owner=organization,
+        perm=MembershipAuthorizationScheme.Perms.MEMBERSHIP_CREATE,
     )
 
     user_to_add = Account.objects.create(

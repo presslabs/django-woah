@@ -1,7 +1,7 @@
 from rest_framework import status
 from rest_framework.reverse import reverse_lazy
 
-from django_woah.models import Membership, UserGroup, Authorization
+from django_woah.models import Membership, UserGroup, AssignedPerm
 from .authorization import IssueAuthorizationScheme
 from .models import Issue, Project
 
@@ -26,7 +26,7 @@ def test_list_issues_empty(api_client, unrelated_account, unrelated_organization
 def test_list_issues_as_owner_no_membership(
     api_client, account, unrelated_organization
 ):
-    issue = Issue.objects.create(
+    Issue.objects.create(
         owner=unrelated_organization,
         author=account,
         title="Issue #1",
@@ -102,10 +102,10 @@ def test_list_issues_as_authorized_org_member(api_client, account, unrelated_acc
         ),
     )
 
-    Authorization.objects.create(
+    AssignedPerm.objects.create(
         user_group=org_users,
-        root=org_users,
-        role=IssueAuthorizationScheme.Perms.ISSUE_VIEW,
+        owner=unrelated_account,
+        perm=IssueAuthorizationScheme.Perms.ISSUE_VIEW,
     )
 
     response = api_client.get(reverse_lazy("issue-list"))
@@ -151,10 +151,10 @@ def test_list_issues_as_org_member_with_explicit_issue_view_authorization_for_al
         ),
     )
 
-    Authorization.objects.create(
+    AssignedPerm.objects.create(
         user_group=org_users,
-        root=org_users,
-        role=IssueAuthorizationScheme.Perms.ISSUE_VIEW,
+        owner=unrelated_account,
+        perm=IssueAuthorizationScheme.Perms.ISSUE_VIEW,
     )
 
     response = api_client.get(reverse_lazy("issue-list"))

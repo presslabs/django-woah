@@ -100,7 +100,8 @@ class UserGroup(AutoCleanModel):
     display_name = models.CharField(max_length=256, null=True, blank=True)
     kind = models.CharField(choices=UserGroupKind.choices, max_length=16)
 
-    owner = related_user = models.ForeignKey(
+    # TODO: should this be nullable?
+    owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         related_name="owned_user_groups",
         on_delete=models.CASCADE,
@@ -109,6 +110,7 @@ class UserGroup(AutoCleanModel):
     parent = models.ForeignKey(
         "self", related_name="children", null=True, blank=True, on_delete=models.CASCADE
     )
+    # This is some yet to be decided denormalization
     root = models.ForeignKey(
         "self",
         related_name="root_descendants",
@@ -131,6 +133,14 @@ class UserGroup(AutoCleanModel):
         blank=True,
         on_delete=models.CASCADE,
     )
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=("owner", "kind", "related_user"),
+                name="unique_usergroup_owner_kind_related_user",
+            ),
+        ]
 
     def full_clean(self, *args, **kwargs):
         if self.kind == self.KINDS.ROOT:
@@ -155,43 +165,89 @@ class UserGroup(AutoCleanModel):
         if not self.name:
             username = ""
             if self.kind == UserGroupKind.USER:
-                username = f"user:{self.related_user.name} "
+                username = f"user:{str(self.related_user)} "
 
             self.name = "".join(
                 element
-                for element in [self.owner.name, username, str(UserGroup)]
+                for element in [str(self.owner), username, str(UserGroup)]
                 if element
             )
 
+    def __str__(self):
+        name = f"{self.owner} {self.kind}"
 
-class AuthorizationManager(models.Manager):
+        if self.parent_membership:
+            name = f"{name}: {self.parent_membership}"
+
+        return name
+
+
+class AssignedPermManager(models.Manager):
     use_for_related_fields = True
 
     def get_queryset(self):
-        return super().get_queryset().select_related("root")
+        return super().get_queryset().select_related("owner")
+
+    def filter(self, *args, **kwargs):
+        if kwargs and (resource := kwargs.pop("resource", None)):
+            kwargs["content_type"] = ContentType.objects.get_for_model(
+                resource.__class__
+            )
+            kwargs["object_id"] = resource.pk
+
+        return super().filter(*args, **kwargs)
+
+    def get(self, *args, **kwargs):
+        if kwargs and (resource := kwargs.pop("resource", None)):
+            kwargs["content_type"] = ContentType.objects.get_for_model(
+                resource.__class__
+            )
+            kwargs["object_id"] = resource.pk
+
+        return super().get(*args, **kwargs)
+
+    def get_or_create(self, defaults=None, **kwargs):
+        if defaults and (resource := defaults.pop("resource", None)):
+            defaults["content_type"] = ContentType.objects.get_for_model(
+                resource.__class__
+            )
+            defaults["object_id"] = resource.pk
+
+        if resource := kwargs.pop("resource", None):
+            kwargs["content_type"] = ContentType.objects.get_for_model(
+                resource.__class__
+            )
+            kwargs["object_id"] = resource.pk
+
+        return super().get_or_create(defaults=defaults, **kwargs)
 
 
-class Authorization(AutoCleanModel):
+# class AssignedPermAppliesTo(models.TextChoices):
+#     ALL = "all", "All"
+#     MEMBERS = "members", "Members"
+#     OUTSIDE_COLLABORATORS = "outside_collaborators", "Outside Collaborators"
+
+
+class AssignedPerm(AutoCleanModel):
     user_group = models.ForeignKey(
-        UserGroup, on_delete=models.CASCADE, related_name="authorizations"
+        UserGroup, on_delete=models.CASCADE, related_name="group_assigned_perms"
     )
-    root = models.ForeignKey(
-        UserGroup,
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        related_name="owned_assigned_perms",
         on_delete=models.CASCADE,
-        related_name="org_authorizations",
-        limit_choices_to=Q(kind=UserGroupKind.ROOT),
     )
-    role = models.CharField(max_length=128)
+    perm = models.CharField(max_length=128)
 
     content_type = models.ForeignKey(ContentType, models.CASCADE, null=True, blank=True)
     object_id = models.TextField(null=True, blank=True)
     resource = GenericForeignKey("content_type", "object_id")
 
-    resource_id = models.TextField(null=True, blank=True)
+    non_model_resource_id = models.TextField(null=True, blank=True)
 
-    restriction = models.TextField(null=True, blank=True)
+    # restriction = models.TextField(null=True, blank=True)
 
-    objects = AuthorizationManager()
+    objects = AssignedPermManager()
 
     class Meta:
         indexes = [
@@ -201,27 +257,26 @@ class Authorization(AutoCleanModel):
     def __str__(self):
         target = "*" if not self.object_id else f"{self.content_type, self.object_id}"
 
-        return f"{self.role}, target:{target}, for:{self.user_group}"
+        return f"<{self.perm}>, target:<{target}>, for:<{self.user_group}>"
 
-    def clean(self):
+    def full_clean(self, *args, **kwargs):
         resource_data = [self.content_type, self.object_id]
         if any(resource_data) and not all(resource_data):
             raise ValidationError(
                 "Both or neither content_type and self.object_id must be specified."
             )
 
-        if self.resource and self.resource_id:
+        if self.resource and self.non_model_resource_id:
             raise ValidationError(
-                "Both a resource and a resource_id may not be specified."
+                "Both a resource and a non_model_resource_id may not be specified."
             )
 
         try:
-            self.root
-        except Authorization.root.RelatedObjectDoesNotExist:
-            self.root = self.user_group.root or self.user_group
+            self.owner
+        except AssignedPerm.owner.RelatedObjectDoesNotExist:
+            self.owner = self.user_group.owner
 
-        if self.root.kind != UserGroup.KINDS.ROOT:
-            raise ValidationError("Root UserGroup must have kind=UserGroup.KINDS.ROOT")
+        return super().full_clean(*args, **kwargs)
 
 
 class Membership(AutoCleanModel):
@@ -271,14 +326,31 @@ class Membership(AutoCleanModel):
                     "User must match with the UserGroup(kind=USER) related_user."
                 )
 
-        self.root_user_group = self.user_group.root or self.user_group
+        root_user_group = self.user_group.root or self.user_group
+        if not root_user_group:
+            raise ValidationError("A root_user_group must be specified.")
+
+        self.root_user_group = root_user_group
 
 
-def create_root_user_group_for_account(account) -> UserGroup:
-    return UserGroup.objects.create(
+def get_or_create_root_user_group_for_account(account) -> UserGroup:
+    return UserGroup.objects.get_or_create(
         kind=UserGroupKind.ROOT,
         owner=account,
-    )
+        related_user=account,
+    )[0]
+
+
+def get_or_create_team_user_group_for_account(account, name) -> UserGroup:
+    root = UserGroup.objects.get(owner=account, kind=UserGroupKind.ROOT)
+
+    return UserGroup.objects.get_or_create(
+        name=name,
+        kind=UserGroupKind.TEAM,
+        owner=account,
+        root=root,
+        parent=root,
+    )[0]
 
 
 @transaction.atomic
@@ -294,26 +366,26 @@ def add_user_to_user_group(
 
     root_user_group = user_group.root or user_group
 
-    resulted_membership = Membership.objects.create(
+    resulted_membership = Membership.objects.update_or_create(
         user=user,
         user_group=user_group,
         root_user_group=root_user_group,
-        is_outside_collaborator=is_outside_collaborator,
         parent=parent_membership,
-    )
+        defaults={"is_outside_collaborator": is_outside_collaborator},
+    )[0]
 
     resulted_user_group = None
     if user_group.kind == UserGroupKind.ROOT:
-        resulted_user_group = UserGroup.objects.create(
+        resulted_user_group = UserGroup.objects.update_or_create(
             kind=UserGroupKind.USER,
             parent=user_group,
             root=user_group,
             owner=user_group.owner,
             related_user=user,
             parent_membership=resulted_membership,
-        )
+        )[0]
 
-        Membership.objects.create(
+        Membership.objects.update_or_create(
             user=user,
             user_group=resulted_user_group,
             root_user_group=root_user_group,
@@ -322,3 +394,9 @@ def add_user_to_user_group(
         )
 
     return resulted_membership, resulted_user_group
+
+
+def assign_perm(perm, to_user, on_account):
+    AssignedPerm.objects.create(
+        user_group=to_user.related_user_groups.get(owner=on_account), perm=perm
+    )

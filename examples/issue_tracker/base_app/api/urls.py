@@ -5,7 +5,7 @@ from .views import (
     AccountViewSet,
     MembershipViewSet,
     UserGroupViewSet,
-    AuthorizationViewSet,
+    AssignedPermViewSet,
 )
 
 router = routers.SimpleRouter(trailing_slash=False)
@@ -14,6 +14,6 @@ router.register(r"issues", IssueViewSet, basename="issue")
 router.register(r"accounts", AccountViewSet, basename="account")
 router.register(r"memberships", MembershipViewSet, basename="membership")
 router.register(r"user_groups", UserGroupViewSet, basename="user-group")
-router.register(r"authorizations", AuthorizationViewSet, basename="authorization")
+router.register(r"assigned_perms", AssignedPermViewSet, basename="assigned-perm")
 
 urlpatterns = router.urls

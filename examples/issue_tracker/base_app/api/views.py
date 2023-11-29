@@ -7,15 +7,15 @@ from .serializers import (
     AccountSummarySerializer,
     MembershipSerializer,
     UserGroupSerializer,
-    AuthorizationSerializer,
+    AssignedPermSerializer,
 )
 from ..authorization import (
     AuthorizationSolver,
     IssueAuthorizationScheme,
     AccountAuthorizationScheme,
     MembershipAuthorizationScheme,
-    RootUserGroupAuthorizationScheme,
-    AuthorizationAuthorizationScheme,
+    UserGroupAuthorizationScheme,
+    AssignedPermAuthorizationScheme,
 )
 
 
@@ -79,9 +79,7 @@ class MembershipViewSet(AuthorizationViewSetMixin, ModelViewSet):
     #     if self.request.method == "POST":
     #         user_group_pk = self.request.data["user_group"].pk
     #
-    #         return self.authorization_solver.get_authorized_resources_queryset(
-    #             perm=self.self.get_required_permissions(),
-    #         )
+    #         return self.authorization_solver.get_authorized_resources_queryset()
     #
     #     return super().get_authorization_model_object()
 
@@ -94,24 +92,24 @@ class UserGroupViewSet(AuthorizationViewSetMixin, ModelViewSet):
     authorization_solver = AuthorizationSolver
 
     perms_map = {
-        "GET": RootUserGroupAuthorizationScheme.Perms.ACCOUNT_VIEW,
+        "GET": UserGroupAuthorizationScheme.Perms.USER_GROUP_VIEW,
     }
 
     def get_queryset(self):
         return self.get_requested_model_queryset()
 
 
-class AuthorizationViewSet(AuthorizationViewSetMixin, ModelViewSet):
-    serializer_class = AuthorizationSerializer
+class AssignedPermViewSet(AuthorizationViewSetMixin, ModelViewSet):
+    serializer_class = AssignedPermSerializer
     lookup_field = "pk"
-    lookup_url_kwarg = "authorization_id"
+    lookup_url_kwarg = "privilege_id"
 
     authorization_solver = AuthorizationSolver
 
     perms_map = {
-        "GET": AuthorizationAuthorizationScheme.Perms.AUTHORIZATION_VIEW,
-        "POST": AuthorizationAuthorizationScheme.Perms.AUTHORIZATION_ADD,
-        "DELETE": AuthorizationAuthorizationScheme.Perms.AUTHORIZATION_DELETE,
+        "GET": AssignedPermAuthorizationScheme.Perms.AUTHORIZATION_VIEW,
+        "POST": AssignedPermAuthorizationScheme.Perms.AUTHORIZATION_ADD,
+        "DELETE": AssignedPermAuthorizationScheme.Perms.AUTHORIZATION_DELETE,
     }
 
     def get_queryset(self):
@@ -123,8 +121,8 @@ class AuthorizationViewSet(AuthorizationViewSetMixin, ModelViewSet):
     #
     #     return super().get_authorization_relation()
 
-    def get_authorization_context(self, extra=None):
+    def get_authorization_context_extra(self, *args, **kwargs) -> dict:
         if self.request.method == "POST":
-            extra = self.get_serializer().to_internal_value(self.request.data)
+            return self.get_serializer().to_internal_value(self.request.data)
 
-        return super().get_authorization_context(extra=extra)
+        return super().get_authorization_context_extra(*args, **kwargs)

@@ -5,7 +5,7 @@ from django_woah.models import (
     Membership,
     UserGroup,
     add_user_to_user_group,
-    Authorization,
+    AssignedPerm,
 )
 from ..authorization import AuthorizationSolver
 from ..models import Account, Issue
@@ -146,11 +146,11 @@ class ResourceHyperlinkedRelatedField(serializers.Serializer):
                 return serializer(context=self.context).to_representation(value)["url"]
 
 
-class AuthorizationSerializer(serializers.ModelSerializer):
+class AssignedPermSerializer(serializers.ModelSerializer):
     url = serializers.HyperlinkedIdentityField(
-        view_name="authorization-detail",
+        view_name="assigned-perm-detail",
         lookup_field="pk",
-        lookup_url_kwarg="authorization_id",
+        lookup_url_kwarg="privilege_id",
     )
     user_group = serializers.HyperlinkedRelatedField(
         view_name="user-group-detail",
@@ -179,12 +179,12 @@ class AuthorizationSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = Authorization
+        model = AssignedPerm
 
         fields = [
             "url",
             "user_group",
-            "role",
+            "perm",
             "resource",
         ]
 
@@ -196,7 +196,7 @@ class AuthorizationSerializer(serializers.ModelSerializer):
     #     return super().create(validated_data)
 
     def validate(self, attrs):
-        attrs["role"], _ = AuthorizationSolver.clean_perm(attrs["role"])
-        attrs["root"] = attrs["user_group"].root or attrs["user_group"]
+        attrs["perm"], _ = AuthorizationSolver.clean_perm(attrs["perm"])
+        attrs["owner"] = attrs["user_group"].owner
 
         return attrs

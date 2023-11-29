@@ -8,7 +8,7 @@ from rest_framework.exceptions import ErrorDetail
 from rest_framework.test import APIClient
 
 from django_woah.models import (
-    create_root_user_group_for_account,
+    get_or_create_root_user_group_for_account,
     add_user_to_user_group,
 )
 from .models import Account
@@ -74,7 +74,7 @@ def organization(account):
         is_organization=True,
     )
 
-    root_org_user_group = create_root_user_group_for_account(org)
+    root_org_user_group = get_or_create_root_user_group_for_account(org)
     add_user_to_user_group(user=account, user_group=root_org_user_group)
 
     return org
@@ -88,7 +88,7 @@ def unrelated_organization(unrelated_account):
         is_organization=True,
     )
 
-    root_org_user_group = create_root_user_group_for_account(org)
+    root_org_user_group = get_or_create_root_user_group_for_account(org)
     add_user_to_user_group(user=unrelated_account, user_group=root_org_user_group)
 
     return org

@@ -5,11 +5,10 @@ from rest_framework.reverse import reverse_lazy
 from django_woah.models import (
     Membership,
     UserGroup,
-    Authorization,
-    create_root_user_group_for_account,
+    AssignedPerm,
+    get_or_create_root_user_group_for_account,
 )
 from .authorization import (
-    RootUserGroupAuthorizationScheme,
     AccountAuthorizationScheme,
 )
 from .models import Account
@@ -36,7 +35,7 @@ def test_list_accounts_with_no_access_to_organization(
     unrelated_account.is_organization = True
     unrelated_account.save()
 
-    create_root_user_group_for_account(unrelated_account)
+    get_or_create_root_user_group_for_account(unrelated_account)
 
     response = api_client.get(reverse_lazy("account-list"))
 
@@ -91,10 +90,10 @@ def test_delete_organization_as_owner(api_client, account, organization):
         related_user=account, root=root_org_user_group
     )
 
-    Authorization.objects.create(
+    AssignedPerm.objects.create(
         user_group=account_user_group,
-        root=root_org_user_group,
-        role=AccountAuthorizationScheme.Roles.OWNER,
+        owner=organization,
+        perm=AccountAuthorizationScheme.Roles.OWNER,
         resource=organization,
     )
 
@@ -113,7 +112,10 @@ def test_delete_org_account_with_access_to_org_but_no_permission(
         reverse_lazy("account-detail", args=[organization.uuid])
     )
 
-    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.data == {
+        "detail": "You do not have permission to perform this action."
+    }
 
 
 def test_delete_org_account_with_access_to_org_and_root_user_group_owner_role(
@@ -126,10 +128,10 @@ def test_delete_org_account_with_access_to_org_and_root_user_group_owner_role(
         related_user=account, root=root_org_user_group
     )
 
-    Authorization.objects.create(
+    AssignedPerm.objects.create(
         user_group=account_user_group,
-        root=root_org_user_group,
-        role=AccountAuthorizationScheme.Roles.OWNER,
+        owner=organization,
+        perm=AccountAuthorizationScheme.Roles.OWNER,
         resource=organization,
     )
 
@@ -142,7 +144,7 @@ def test_delete_org_account_with_access_to_org_and_root_user_group_owner_role(
     assert not Account.objects.filter(uuid=organization.uuid)
 
     # Make sure related stuff like Memberships, UserGroups and Authorizations have been cascade deleted
-    assert not Authorization.objects.filter(root=root_org_user_group)
+    assert not AssignedPerm.objects.filter(owner=organization)
     assert not UserGroup.objects.filter(
         Q(root=root_org_user_group) | Q(owner=organization)
     )
@@ -155,14 +157,20 @@ def test_delete_org_account_with_access_to_org_and_root_user_group_owner_role(
         reverse_lazy("account-detail", args=[organization.uuid])
     )
 
-    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.data == {
+        "detail": "You do not have permission to perform this action."
+    }
 
     # Try to delete the unrelated org
     response = api_client.delete(
         reverse_lazy("account-detail", args=[unrelated_organization.uuid])
     )
 
-    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.data == {
+        "detail": "You do not have permission to perform this action."
+    }
 
     assert Account.objects.filter(uuid=unrelated_organization.uuid)
 
@@ -179,10 +187,10 @@ def test_delete_org_account_with_access_to_org_and_account_user_group_owner_role
         related_user=account, root=root_org_user_group
     )
 
-    Authorization.objects.create(
+    AssignedPerm.objects.create(
         user_group=account_user_group,
-        root=root_org_user_group,
-        role=AccountAuthorizationScheme.Roles.OWNER,
+        owner=organization,
+        perm=AccountAuthorizationScheme.Roles.OWNER,
         resource=account_user_group,
     )
 
@@ -190,4 +198,7 @@ def test_delete_org_account_with_access_to_org_and_account_user_group_owner_role
         reverse_lazy("account-detail", args=[organization.uuid])
     )
 
-    assert response.status_code == status.HTTP_404_NOT_FOUND
+    assert response.status_code == status.HTTP_403_FORBIDDEN
+    assert response.data == {
+        "detail": "You do not have permission to perform this action."
+    }

@@ -4,15 +4,24 @@ version = "0.1.0"
 description = ""
 authors = ["Bogdan Petrea <bogdan@presslabs.com>"]
 readme = "README.md"
+license = "Apache-2.0"
+packages = [
+    { include = "django_woah" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.11"
 django = "^4.2.6"
 uuid6 = "^2023.5.2"
 djangorestframework = {version = "^3.14.0", optional = true}
-black = "^23.9.1"
+sympy = "^1.12"
+
+[tool.poetry.group.test.dependencies]
 pytest = "^7.4.2"
 pytest-django = "^4.5.2"
+ruff = "^0.1.4"
+django-stubs = "^4.2.6"
+mypy = "^1.8.0"
 
 [tool.poetry.extras]
 drf = ["djangorestframework"]
@@ -21,3 +30,12 @@ drf = ["djangorestframework"]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
+#[tool.pyright]
+##venvPath = "/home/celo/.pyenv/versions"
+##venv="django-woah"
+#exclude=[
+#    "examples/**"
+#]
+
+[tool.mypy]
+exclude = "examples"

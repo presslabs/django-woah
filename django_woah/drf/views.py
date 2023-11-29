@@ -1,12 +1,41 @@
 from collections import defaultdict
 
-from rest_framework.exceptions import MethodNotAllowed
+from django.conf import settings
+from typing import Optional
+
+from django.db.models import Model
+from django.http import Http404
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import Q
+
+from rest_framework.exceptions import (
+    MethodNotAllowed,
+    PermissionDenied,
+    ValidationError,
+)
+from rest_framework.fields import empty
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.viewsets import GenericViewSet
 
 from django_woah.drf.permission import IsAuthorized
-from django_woah.authorization import AuthorizationSolver, PermEnum
+from django_woah.authorization import (
+    AuthorizationSolver,
+    PermEnum,
+    Context,
+    CombinedContext,
+)
+from django_woah.utils.q import merge_qs
 
 uninitialized = object()
+
+validation_error_setting = "AUTHORIZATION_UNSAVED_RESOURCE_VALIDATION_ERRORS"
+clean_unsaved_resource_setting = "AUTHORIZATION_UNSAVED_RESOURCE_CLEAN_BEFORE"
+validation_error_message = (
+    "The unsaved resource on which the authorization is being run against has validation errors.\n"
+    f"To easily avoid most of these situations, you may set {validation_error_setting} = False"
+    "in your app settings, but beware of the (rare) potential pitfalls.\n"
+    "Check the base `get_unsaved_resource` method on your view to find more about it."
+)
 
 
 class AuthorizationViewSetMixin:
@@ -31,20 +60,30 @@ class AuthorizationViewSetMixin:
         )
 
     @property
-    def model(self):
-        return self.serializer_class.Meta.model
+    def model(self) -> type[Model]:
+        if queryset := getattr(self, "queryset", None):
+            return queryset.model
+
+        if serializer_class := self.get_serializer_class():
+            return serializer_class.Meta.model
 
     def get_authorization_relation(self):
         return getattr(self, "authorization_relation", None)
 
     def get_authorized_model_lookup_url_kwarg(self):
-        return getattr(self, "authorized_model_lookup_url_kwarg", None)
+        return getattr(
+            self,
+            "authorized_model_lookup_url_kwarg",
+            getattr(self, "lookup_url_kwarg", None),
+        )
 
     def get_authorized_model_lookup_field(self):
-        return getattr(self, "authorized_model_lookup_field", None)
+        return getattr(
+            self, "authorized_model_lookup_field", getattr(self, "lookup_field", None)
+        )
 
     @property
-    def authorization_model(self):
+    def authorization_model(self) -> type[Model]:
         auth_relation_field = self.get_authorization_relation()
         if not auth_relation_field:
             return self.model
@@ -74,44 +113,100 @@ class AuthorizationViewSetMixin:
 
         method = self.request.method
 
-        if method not in self.perms_map:
+        perms = self.perms_map.get(method)
+        if perms is None:
+            if method == "OPTIONS":
+                if getattr(self, "authorize_options_as_get", True):
+                    perms = self.perms_map.get("GET")
+
+        if perms is None:
             raise MethodNotAllowed(method)
 
-        return self.perms_map[method]
+        if isinstance(perms, (str, PermEnum)):
+            perms = [perms]
+
+        return perms
 
     def get_actor(self):
         return self.request.user
 
-    def get_authorization_context(self, extra=None):
+    def get_authorization_context_extra(self, perm: str | PermEnum) -> dict:
+        return {}
+
+    def get_authorization_context(self) -> CombinedContext:
         cache_key = self.get_cache_key("get_authorization_context")
         cached_result = self._cache[cache_key]
 
         if cached_result is not uninitialized:
             return cached_result
 
-        context = self.authorization_solver.get_context(
-            # TODO fix multiple permissions
-            perm=self.get_required_permissions(),
-            actor=self.get_actor(),
-            resource=self.authorization_model,
-            extra=extra,
+        context = CombinedContext()
+
+        for perm in self.get_required_permissions():
+            if not isinstance(perm, PermEnum):
+                perm, _ = self.authorization_solver.clean_perm(perm)
+
+            context.add(
+                self.authorization_solver.get_context(
+                    actor=self.get_actor(),
+                    perm=perm,
+                    resource=self.authorization_model,
+                    extra=self.get_authorization_context_extra(perm),
+                    prefetch_assigned_perms=False,
+                )
+            )
+
+        context.assigned_perms = self.authorization_solver.get_assigned_perms_queryset(
+            context
         )
 
         self._cache[cache_key] = context
 
         return context
 
-    def get_authorization_model_queryset(self):
-        cache_key = self.get_cache_key("get_authorization_model_queryset")
+    def get_authorization_model_q(self) -> Optional[Q]:
+        cache_key = self.get_cache_key("get_authorization_model_q")
+        cached_result = self._cache[cache_key]
+
+        if cached_result is not uninitialized:
+            return cached_result
+
+        qs = []
+
+        for context in self.get_authorization_context().contexts:
+            qs.append(
+                self.authorization_solver.get_authorized_resources_q(context=context)
+            )
+
+        q = merge_qs(qs)
+
+        if q is not None and self.kwargs.get(
+            self.get_authorized_model_lookup_url_kwarg()
+        ):
+            q &= Q(
+                **{
+                    self.get_authorized_model_lookup_field(): self.kwargs.get(
+                        self.get_authorized_model_lookup_url_kwarg()
+                    )
+                }
+            )
+
+        self._cache[cache_key] = q
+
+        return q
+
+    def get_authorization_model_queryset(self, base_queryset=None):
+        cache_key = self.get_cache_key(
+            "get_authorization_model_queryset", base_queryset=base_queryset
+        )
         cached_result = self._cache[cache_key]
 
         if cached_result is not uninitialized:
             return cached_result
 
         queryset = self.authorization_solver.get_authorized_resources_queryset(
-            # TODO fix multiple permissions
-            perm=self.get_required_permissions(),
             context=self.get_authorization_context(),
+            base_queryset=base_queryset,
         )
 
         if self.kwargs.get(self.get_authorized_model_lookup_url_kwarg()):
@@ -127,8 +222,12 @@ class AuthorizationViewSetMixin:
 
         return queryset
 
-    def get_authorization_model_object(self):
-        cache_key = self.get_cache_key("get_authorization_model_object")
+    def get_authorization_model_object(
+        self, skip_authorization=False
+    ) -> Optional[Model]:
+        cache_key = self.get_cache_key(
+            "get_authorization_model_object", skip_authorization=skip_authorization
+        )
         cached_result = self._cache[cache_key]
 
         if cached_result is not uninitialized:
@@ -138,38 +237,151 @@ class AuthorizationViewSetMixin:
         if lookup_url_kwarg and self.kwargs.get(lookup_url_kwarg) is None:
             return None
 
-        obj = self.get_authorization_model_queryset().first()
+        queryset = self.authorization_model.objects.filter(
+            **{
+                self.get_authorized_model_lookup_field(): self.kwargs.get(
+                    lookup_url_kwarg
+                )
+            }
+        )
+        if not skip_authorization:
+            queryset = self.get_authorization_model_queryset(base_queryset=queryset)
+
+        obj = queryset.first()
 
         self._cache[cache_key] = obj
 
         return obj
 
     def get_requested_model_queryset(self):
-        if self.model == self.authorization_model:
-            return self.get_authorization_model_queryset()
+        queryset = getattr(self, "queryset", None)
 
-        return self.model.objects.filter(
+        if self.model == self.authorization_model:
+            return self.get_authorization_model_queryset(base_queryset=queryset)
+
+        if not queryset:
+            queryset = self.model.objects
+
+        return queryset.filter(
             **{
                 f"{self.get_authorization_relation()}__in": self.get_authorization_model_queryset()
             }
         )
 
-    def is_authorized_for_unsaved_resource(self):
-        # TODO move this in context initialization
-        context = self.get_authorization_context()
-        serializer = self.get_serializer()
+    def get_unsaved_resource(self) -> Model:
+        """
+        This method is used to obtain an instance of the unsaved resource against which authorization will be run.
+        It is written such that it minimizes the cases where exceptions are raised, in case of ValidationErrors,
+        or fields which don't exist on the model or are reverse relations and cannot be instantiated as such.
 
-        context.resources = serializer.Meta.model(
-            **serializer.to_internal_value(self.request.data)
-        )
-        context.resources.clean()
-        print(
-            "is_authorized_for_unsaved_resource!!!!",
-            serializer.to_internal_value(self.request.data),
-        )
+        It's possible that in some weird and rare cases, this will result in a wrong authorization decision.
+
+        For example:
+        - when reverse relations should be part of the validation, because those are not handled here.
+            - using the `unsaved_object_relation` field, in the AuthorizationScheme, might help in some of these cases
+        - when certain fields fail validation (even if that case should result in a validation error eventually).
+        """
+
+        raise_exception = getattr(settings, validation_error_setting, True)
+        raised = False
+
+        serializer = self.get_serializer(data=self.request.data)
+        model = serializer.Meta.model
+
+        reverse_relations = [
+            f.name
+            for f in model._meta.get_fields()
+            if f.auto_created and not f.concrete
+        ]
+
+        try:
+            serializer.is_valid(raise_exception=True)
+            data = serializer.validated_data
+        except (ValidationError, DjangoValidationError):
+            if raise_exception:
+                raised = True
+                raise
+
+            serializer_fields = serializer.fields
+            data = {}
+
+            for field_name, field in serializer_fields.items():
+                if field.source == "*" or field.read_only:
+                    continue
+
+                if (field_value := field.get_value(self.request.data)) != empty:
+                    try:
+                        data[field.source] = field.to_internal_value(field_value)
+                    except (ValidationError, DjangoValidationError):
+                        continue
+        finally:
+            if raised:
+                print(validation_error_message)
+
+        data = {k: v for k, v in data.items() if k not in reverse_relations}
+
+        resource = serializer.Meta.model(**data)
+        if getattr(
+            self,
+            "authorization_clean_unsaved_resource",
+            getattr(settings, clean_unsaved_resource_setting, True),
+        ):
+            try:
+                resource.clean()
+            except DjangoValidationError:
+                if raise_exception:
+                    raised = True
+                    raise
+            finally:
+                if raised:
+                    print(validation_error_message)
+
+        return resource
+
+    def is_authorized_for_unsaved_resource(self) -> bool:
+        # TODO move this in context initialization
+        combined_context = self.get_authorization_context()
+
+        if self.authorization_model != self.model:
+            # If the authorization model is different from the one being serialized it makes no sense
+            # to use get_unsaved_resource, so get_authorization_model_object is used as it's probably
+            # the one deciding the authorization
+
+            # TODO: enable this optimization, but only when lookup_field == model.pk field
+            # if lookup_value := self.kwargs.get(
+            #     self.get_authorized_model_lookup_url_kwarg()
+            # ):
+            #     context.resource = self.authorization_model(
+            #         **{self.get_authorized_model_lookup_field(): lookup_value}
+            #     )
+            # else:
+            resource = self.get_authorization_model_object(skip_authorization=True)
+            for context in combined_context.contexts:
+                context.resource = resource
+
+            return self.authorization_solver.get_authorized_resources_queryset(
+                context=combined_context,
+            ).exists()
+
+        resource = self.get_unsaved_resource()
+
+        if resource is None:
+            return False
+
+        for context in combined_context.contexts:
+            context.resource = resource
 
         return self.authorization_solver.is_authorized_for_unsaved_resource(
-            # TODO fix multiple permissions
-            perm=self.get_required_permissions(),
-            context=context,
+            context=combined_context,
         )
+
+
+class AuthorizationGenericViewSet(AuthorizationViewSetMixin, GenericViewSet):
+    def get_queryset(self):
+        return self.get_requested_model_queryset()
+
+    def get_object(self):
+        try:
+            return super().get_object()
+        except Http404:
+            raise PermissionDenied()
