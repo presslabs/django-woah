@@ -1,0 +1,42 @@
+[tool.poetry]
+name = "django-woah"
+version = "0.1.0"
+description = "A package intended to aid developers in implementing authorization for their Django apps."
+authors = ["Bogdan Petrea <bogdan@presslabs.com>"]
+maintainers = ["Bogdan Petrea <bogdan@presslabs.com>"]
+readme = "README.md"
+license = "Apache-2.0"
+packages = [
+    { include = "django_woah" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+django = "^4.2.6"
+uuid6 = "^2023.5.2"
+djangorestframework = {version = "^3.14.0", optional = true}
+sympy = "^1.12"
+
+[tool.poetry.group.test.dependencies]
+pytest = "^7.4.2"
+pytest-django = "^4.5.2"
+ruff = "^0.1.4"
+django-stubs = "^4.2.6"
+mypy = "^1.8.0"
+
+[tool.poetry.extras]
+drf = ["djangorestframework"]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+#[tool.pyright]
+##venvPath = "/home/celo/.pyenv/versions"
+##venv="django-woah"
+#exclude=[
+#    "examples/**"
+#]
+
+[tool.mypy]
+exclude = "examples"
