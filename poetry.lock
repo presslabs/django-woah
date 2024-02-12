@@ -347,24 +347,24 @@ files = [
 
 [[package]]
 name = "tzdata"
-version = "2023.4"
+version = "2024.1"
 description = "Provider of IANA time zone data"
 optional = false
 python-versions = ">=2"
 files = [
-    {file = "tzdata-2023.4-py2.py3-none-any.whl", hash = "sha256:aa3ace4329eeacda5b7beb7ea08ece826c28d761cda36e747cfbf97996d39bf3"},
-    {file = "tzdata-2023.4.tar.gz", hash = "sha256:dd54c94f294765522c77399649b4fefd95522479a664a0cec87f41bebc6148c9"},
+    {file = "tzdata-2024.1-py2.py3-none-any.whl", hash = "sha256:9068bc196136463f5245e51efda838afa15aaeca9903f49050dfa2679db4d252"},
+    {file = "tzdata-2024.1.tar.gz", hash = "sha256:2674120f8d891909751c38abcdfd386ac0a5a1127954fbc332af6b5ceae07efd"},
 ]
 
 [[package]]
 name = "uuid6"
-version = "2023.5.2"
+version = "2024.1.12"
 description = "New time-based UUID formats which are suited for use as a database key"
 optional = false
 python-versions = ">=3.8"
 files = [
-    {file = "uuid6-2023.5.2-py3-none-any.whl", hash = "sha256:9a8125a621426f24d3e4811f9885e7c0c6567ed3cc47f68fe8d41112e603bf85"},
-    {file = "uuid6-2023.5.2.tar.gz", hash = "sha256:03cb97f25ca7b0ac4bea2b3a205f66bfe7f58d3b179bb0f76e1d7946446b6133"},
+    {file = "uuid6-2024.1.12-py3-none-any.whl", hash = "sha256:8150093c8d05a331bc0535bc5ef6cf57ac6eceb2404fd319bc10caee2e02c065"},
+    {file = "uuid6-2024.1.12.tar.gz", hash = "sha256:ed0afb3a973057575f9883201baefe402787ca5e11e1d24e377190f0c43f1993"},
 ]
 
 [extras]
@@ -373,4 +373,4 @@ drf = ["djangorestframework"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "3067912e2c9251525a5afb208cf313b3961b2c68cde363a7d9a92d7f32bda0a0"
+content-hash = "d59cb3b4391be23539164e8cd7e768a3652e378cfdea58caa8144f65d4395411"

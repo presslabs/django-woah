@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "django-woah"
-version = "0.1.0"
-description = "A package intended to aid developers in implementing authorization for their Django apps."
+version = "0.1.1"
+description = "A package intended to aid developers in implementing authorization for Django apps."
 authors = ["Bogdan Petrea <bogdan@presslabs.com>"]
 maintainers = ["Bogdan Petrea <bogdan@presslabs.com>"]
 readme = "README.md"
@@ -9,19 +9,25 @@ license = "Apache-2.0"
 packages = [
     { include = "django_woah" }
 ]
+homepage = "https://github.com/presslabs/django-woah/"
+repository = "https://github.com/presslabs/django-woah/"
+keywords = [
+    "django-woah", "django", "woah", "authorization", "permission", "role", "organization",
+    "team", "drf", "rest-framework"
+]
 
 [tool.poetry.dependencies]
 python = "^3.11"
-django = "^4.2.6"
-uuid6 = "^2023.5.2"
+django = "^4.2.10"
+uuid6 = "^2024.1.12"
 djangorestframework = {version = "^3.14.0", optional = true}
 sympy = "^1.12"
 
 [tool.poetry.group.test.dependencies]
 pytest = "^7.4.2"
 pytest-django = "^4.5.2"
-ruff = "^0.1.4"
-django-stubs = "^4.2.6"
+ruff = "^0.1.15"
+django-stubs = "^4.2.7"
 mypy = "^1.8.0"
 
 [tool.poetry.extras]
