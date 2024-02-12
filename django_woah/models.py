@@ -253,8 +253,10 @@ class AssignedPerm(AutoCleanModel):
     )
     perm = models.CharField(max_length=128)
 
-    content_type = models.ForeignKey(ContentType, models.CASCADE, null=True, blank=True)
-    object_id = models.TextField(null=True, blank=True)
+    content_type = models.ForeignKey(
+        ContentType, on_delete=models.CASCADE, null=True, blank=True
+    )
+    object_id = models.CharField(null=True, blank=True, max_length=40)
     resource = GenericForeignKey("content_type", "object_id")
 
     non_model_resource_id = models.TextField(null=True, blank=True)

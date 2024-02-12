@@ -160,7 +160,7 @@ class Migration(migrations.Migration):
                     ),
                 ),
                 ("perm", models.CharField(max_length=128)),
-                ("object_id", models.TextField(blank=True, null=True)),
+                ("object_id", models.CharField(blank=True, max_length=40, null=True)),
                 ("non_model_resource_id", models.TextField(blank=True, null=True)),
                 (
                     "content_type",
