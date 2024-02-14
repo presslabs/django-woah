@@ -15,26 +15,26 @@ def test_list_memberships_as_org_member(api_client, account, organization):
     assert response.status_code == status.HTTP_200_OK
     assert response.data == [
         {
-            "url": f"http://testserver/api/memberships/{account.memberships.first().uuid}",
+            "url": f"http://testserver/api/memberships/{account.memberships.first().id}",
             "user_summary": {
                 "email": account.email,
                 "username": account.username,
                 "name": account.name,
-                "url": f"http://testserver/api/accounts/{account.uuid}",
+                "url": f"http://testserver/api/accounts/{account.id}",
                 "is_organization": False,
             },
-            "user_group": f"http://testserver/api/user_groups/{organization.owned_user_groups.get(kind=UserGroup.KINDS.ROOT).uuid}",
+            "user_group": f"http://testserver/api/user_groups/{organization.owned_user_groups.get(kind=UserGroup.KINDS.ROOT).id}",
         },
         {
-            "url": f"http://testserver/api/memberships/{account.memberships.last().uuid}",
+            "url": f"http://testserver/api/memberships/{account.memberships.last().id}",
             "user_summary": {
                 "email": account.email,
                 "username": account.username,
                 "name": account.name,
-                "url": f"http://testserver/api/accounts/{account.uuid}",
+                "url": f"http://testserver/api/accounts/{account.id}",
                 "is_organization": False,
             },
-            "user_group": f"http://testserver/api/user_groups/{account.related_user_groups.get().uuid}",
+            "user_group": f"http://testserver/api/user_groups/{account.related_user_groups.get().id}",
         },
     ]
 
@@ -46,8 +46,8 @@ def test_add_member_to_org_no_permission(api_client, account, organization):
     response = api_client.post(
         reverse_lazy("membership-list"),
         {
-            "user": f"http://testserver/api/accounts/{user_to_add.uuid}",
-            "user_group": f"http://testserver/api/user_groups/{organization.owned_user_groups.get(kind=UserGroup.KINDS.ROOT).uuid}",
+            "user": f"http://testserver/api/accounts/{user_to_add.id}",
+            "user_group": f"http://testserver/api/user_groups/{organization.owned_user_groups.get(kind=UserGroup.KINDS.ROOT).id}",
         },
     )
 
@@ -81,8 +81,8 @@ def test_add_member_to_org_allowed(api_client, account, organization):
     response = api_client.post(
         reverse_lazy("membership-list"),
         {
-            "user": f"http://testserver/api/accounts/{user_to_add.uuid}",
-            "user_group": f"http://testserver/api/user_groups/{root_org_user_group.uuid}",
+            "user": f"http://testserver/api/accounts/{user_to_add.id}",
+            "user_group": f"http://testserver/api/user_groups/{root_org_user_group.id}",
         },
     )
 

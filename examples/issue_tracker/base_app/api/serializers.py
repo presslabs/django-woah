@@ -1,3 +1,17 @@
+#  Copyright 2024 Pressinfra SRL
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
@@ -13,7 +27,7 @@ from ..models import Account, Issue
 
 class AccountSummarySerializer(serializers.ModelSerializer):
     url = serializers.HyperlinkedIdentityField(
-        view_name="account-detail", lookup_field="uuid", lookup_url_kwarg="account_id"
+        view_name="account-detail", lookup_field="id", lookup_url_kwarg="account_id"
     )
 
     class Meta:
@@ -30,7 +44,7 @@ class AccountSummarySerializer(serializers.ModelSerializer):
 
 class IssueSerializer(serializers.ModelSerializer):
     url = serializers.HyperlinkedIdentityField(
-        view_name="issue-detail", lookup_field="uuid", lookup_url_kwarg="issue_id"
+        view_name="issue-detail", lookup_field="id", lookup_url_kwarg="issue_id"
     )
     owner = AccountSummarySerializer()
 
@@ -48,18 +62,18 @@ class IssueSerializer(serializers.ModelSerializer):
 class UserGroupSerializer(serializers.ModelSerializer):
     url = serializers.HyperlinkedIdentityField(
         view_name="user-group-detail",
-        lookup_field="uuid",
+        lookup_field="id",
         lookup_url_kwarg="user_group_id",
     )
     parent = serializers.HyperlinkedRelatedField(
         view_name="user-group-detail",
-        lookup_field="uuid",
+        lookup_field="id",
         lookup_url_kwarg="user_group_id",
         read_only=True,
     )
     root = serializers.HyperlinkedRelatedField(
         view_name="user-group-detail",
-        lookup_field="uuid",
+        lookup_field="id",
         lookup_url_kwarg="user_group_id",
         read_only=True,
     )
@@ -78,12 +92,12 @@ class UserGroupSerializer(serializers.ModelSerializer):
 class MembershipSerializer(serializers.ModelSerializer):
     url = serializers.HyperlinkedIdentityField(
         view_name="membership-detail",
-        lookup_field="uuid",
+        lookup_field="id",
         lookup_url_kwarg="membership_id",
     )
     user = serializers.HyperlinkedRelatedField(
         view_name="account-detail",
-        lookup_field="uuid",
+        lookup_field="id",
         lookup_url_kwarg="account_id",
         queryset=Account.objects.all(),
         write_only=True,
@@ -91,7 +105,7 @@ class MembershipSerializer(serializers.ModelSerializer):
     user_summary = AccountSummarySerializer(source="user", read_only=True)
     user_group = serializers.HyperlinkedRelatedField(
         view_name="user-group-detail",
-        lookup_field="uuid",
+        lookup_field="id",
         lookup_url_kwarg="user_group_id",
         queryset=UserGroup.objects.all(),
     )
@@ -154,7 +168,7 @@ class AssignedPermSerializer(serializers.ModelSerializer):
     )
     user_group = serializers.HyperlinkedRelatedField(
         view_name="user-group-detail",
-        lookup_field="uuid",
+        lookup_field="id",
         lookup_url_kwarg="user_group_id",
         queryset=UserGroup.objects.all(),
     )
@@ -165,7 +179,7 @@ class AssignedPermSerializer(serializers.ModelSerializer):
     # simple inheritance...
     # resource = serializers.HyperlinkedRelatedField(
     #     view_name="user-group-detail",
-    #     lookup_field="uuid",
+    #     lookup_field="id",
     #     lookup_url_kwarg="user_group_id",
     #     queryset=UserGroup.objects.all(),
     # )

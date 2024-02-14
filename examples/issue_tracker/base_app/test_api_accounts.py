@@ -23,7 +23,7 @@ def test_list_accounts_no_organizations(api_client, account, unrelated_account):
             "email": account.email,
             "username": account.username,
             "name": account.name,
-            "url": f"http://testserver/api/accounts/{account.uuid}",
+            "url": f"http://testserver/api/accounts/{account.id}",
             "is_organization": False,
         }
     ]
@@ -45,7 +45,7 @@ def test_list_accounts_with_no_access_to_organization(
             "email": account.email,
             "username": account.username,
             "name": account.name,
-            "url": f"http://testserver/api/accounts/{account.uuid}",
+            "url": f"http://testserver/api/accounts/{account.id}",
             "is_organization": False,
         }
     ]
@@ -62,24 +62,24 @@ def test_list_accounts_which_have_access_to_organization(
             "email": account.email,
             "username": account.username,
             "name": account.name,
-            "url": f"http://testserver/api/accounts/{account.uuid}",
+            "url": f"http://testserver/api/accounts/{account.id}",
             "is_organization": False,
         },
         {
             "email": organization.email,
             "username": organization.username,
             "name": organization.name,
-            "url": f"http://testserver/api/accounts/{organization.uuid}",
+            "url": f"http://testserver/api/accounts/{organization.id}",
             "is_organization": True,
         },
     ]
 
 
 def test_delete_account_self(api_client, account):
-    response = api_client.delete(reverse_lazy("account-detail", args=[account.uuid]))
+    response = api_client.delete(reverse_lazy("account-detail", args=[account.id]))
 
     assert response.status_code == status.HTTP_204_NO_CONTENT
-    assert not Account.objects.filter(uuid=account.uuid)
+    assert not Account.objects.filter(id=account.id)
 
 
 def test_delete_organization_as_owner(api_client, account, organization):
@@ -97,20 +97,16 @@ def test_delete_organization_as_owner(api_client, account, organization):
         resource=organization,
     )
 
-    response = api_client.delete(
-        reverse_lazy("account-detail", args=[organization.uuid])
-    )
+    response = api_client.delete(reverse_lazy("account-detail", args=[organization.id]))
 
     assert response.status_code == status.HTTP_204_NO_CONTENT
-    assert not Account.objects.filter(uuid=organization.uuid)
+    assert not Account.objects.filter(id=organization.id)
 
 
 def test_delete_org_account_with_access_to_org_but_no_permission(
     api_client, organization
 ):
-    response = api_client.delete(
-        reverse_lazy("account-detail", args=[organization.uuid])
-    )
+    response = api_client.delete(reverse_lazy("account-detail", args=[organization.id]))
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert response.data == {
@@ -135,13 +131,11 @@ def test_delete_org_account_with_access_to_org_and_root_user_group_owner_role(
         resource=organization,
     )
 
-    response = api_client.delete(
-        reverse_lazy("account-detail", args=[organization.uuid])
-    )
+    response = api_client.delete(reverse_lazy("account-detail", args=[organization.id]))
 
     assert response.status_code == status.HTTP_204_NO_CONTENT
 
-    assert not Account.objects.filter(uuid=organization.uuid)
+    assert not Account.objects.filter(id=organization.id)
 
     # Make sure related stuff like Memberships, UserGroups and Authorizations have been cascade deleted
     assert not AssignedPerm.objects.filter(owner=organization)
@@ -150,12 +144,10 @@ def test_delete_org_account_with_access_to_org_and_root_user_group_owner_role(
     )
     assert not Membership.objects.filter(root_user_group=root_org_user_group)
 
-    assert Account.objects.filter(uuid=account.uuid)
+    assert Account.objects.filter(id=account.id)
 
     # Try again to delete the org
-    response = api_client.delete(
-        reverse_lazy("account-detail", args=[organization.uuid])
-    )
+    response = api_client.delete(reverse_lazy("account-detail", args=[organization.id]))
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert response.data == {
@@ -164,7 +156,7 @@ def test_delete_org_account_with_access_to_org_and_root_user_group_owner_role(
 
     # Try to delete the unrelated org
     response = api_client.delete(
-        reverse_lazy("account-detail", args=[unrelated_organization.uuid])
+        reverse_lazy("account-detail", args=[unrelated_organization.id])
     )
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -172,7 +164,7 @@ def test_delete_org_account_with_access_to_org_and_root_user_group_owner_role(
         "detail": "You do not have permission to perform this action."
     }
 
-    assert Account.objects.filter(uuid=unrelated_organization.uuid)
+    assert Account.objects.filter(id=unrelated_organization.id)
 
 
 def test_delete_org_account_with_access_to_org_and_account_user_group_owner_role(
@@ -194,9 +186,7 @@ def test_delete_org_account_with_access_to_org_and_account_user_group_owner_role
         resource=account_user_group,
     )
 
-    response = api_client.delete(
-        reverse_lazy("account-detail", args=[organization.uuid])
-    )
+    response = api_client.delete(reverse_lazy("account-detail", args=[organization.id]))
 
     assert response.status_code == status.HTTP_403_FORBIDDEN
     assert response.data == {

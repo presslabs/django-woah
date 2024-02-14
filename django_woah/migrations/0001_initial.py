@@ -19,7 +19,7 @@ class Migration(migrations.Migration):
             name="Membership",
             fields=[
                 (
-                    "uuid",
+                    "id",
                     models.UUIDField(
                         default=uuid6.uuid7,
                         primary_key=True,
@@ -49,7 +49,7 @@ class Migration(migrations.Migration):
             name="UserGroup",
             fields=[
                 (
-                    "uuid",
+                    "id",
                     models.UUIDField(
                         default=uuid6.uuid7,
                         primary_key=True,
@@ -57,11 +57,7 @@ class Migration(migrations.Migration):
                         unique=True,
                     ),
                 ),
-                ("name", models.CharField(blank=True, max_length=128, null=True)),
-                (
-                    "display_name",
-                    models.CharField(blank=True, max_length=256, null=True),
-                ),
+                ("name", models.CharField(blank=True, max_length=80)),
                 (
                     "kind",
                     models.CharField(
@@ -152,11 +148,11 @@ class Migration(migrations.Migration):
             fields=[
                 (
                     "id",
-                    models.BigAutoField(
-                        auto_created=True,
+                    models.UUIDField(
+                        default=uuid6.uuid7,
                         primary_key=True,
                         serialize=False,
-                        verbose_name="ID",
+                        unique=True,
                     ),
                 ),
                 ("perm", models.CharField(max_length=128)),

@@ -66,12 +66,12 @@ def test_list_issues_as_project_owner(api_client, account):
     assert response.status_code == status.HTTP_200_OK
     assert response.data == [
         {
-            "url": f"http://testserver/api/issues/{issue.uuid}",
+            "url": f"http://testserver/api/issues/{issue.id}",
             "owner": {
                 "email": account.email,
                 "username": account.username,
                 "name": account.name,
-                "url": f"http://testserver/api/accounts/{account.uuid}",
+                "url": f"http://testserver/api/accounts/{account.id}",
                 "is_organization": True,
             },
             "title": "Issue #1",
@@ -113,12 +113,12 @@ def test_list_issues_as_authorized_org_member(api_client, account, unrelated_acc
     assert response.status_code == status.HTTP_200_OK
     assert response.data == [
         {
-            "url": f"http://testserver/api/issues/{issue.uuid}",
+            "url": f"http://testserver/api/issues/{issue.id}",
             "owner": {
                 "email": unrelated_account.email,
                 "username": unrelated_account.username,
                 "name": unrelated_account.name,
-                "url": f"http://testserver/api/accounts/{unrelated_account.uuid}",
+                "url": f"http://testserver/api/accounts/{unrelated_account.id}",
                 "is_organization": True,
             },
             "title": "Issue #1",
@@ -162,12 +162,12 @@ def test_list_issues_as_org_member_with_explicit_issue_view_authorization_for_al
     assert response.status_code == status.HTTP_200_OK
     assert response.data == [
         {
-            "url": f"http://testserver/api/issues/{issue.uuid}",
+            "url": f"http://testserver/api/issues/{issue.id}",
             "owner": {
                 "email": unrelated_account.email,
                 "username": unrelated_account.username,
                 "name": unrelated_account.name,
-                "url": f"http://testserver/api/accounts/{unrelated_account.uuid}",
+                "url": f"http://testserver/api/accounts/{unrelated_account.id}",
                 "is_organization": True,
             },
             "title": "Issue #1",
@@ -205,12 +205,12 @@ def test_list_issues_as_org_member_and_issue_ownership(
     assert response.status_code == status.HTTP_200_OK
     assert response.data == [
         {
-            "url": f"http://testserver/api/issues/{issue.uuid}",
+            "url": f"http://testserver/api/issues/{issue.id}",
             "owner": {
                 "email": unrelated_account.email,
                 "username": unrelated_account.username,
                 "name": unrelated_account.name,
-                "url": f"http://testserver/api/accounts/{unrelated_account.uuid}",
+                "url": f"http://testserver/api/accounts/{unrelated_account.id}",
                 "is_organization": True,
             },
             "title": "Issue #1",

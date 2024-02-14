@@ -13,6 +13,7 @@
 #  limitations under the License.
 
 import uuid6
+
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
@@ -20,84 +21,7 @@ from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import Q, UniqueConstraint
 
-
-class AutoCleanModel(models.Model):
-    class Meta:
-        abstract = True
-
-    def _init_states(self):
-        self.initial_state = self.current_state
-
-        self.cleaned_state = {} if not self.pk else self.initial_state.copy()
-        self.saved_state = {} if not self.pk else self.initial_state.copy()
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._init_states()
-
-    @property
-    def current_state(self):
-        return {
-            field.name: self.__dict__[field.attname]
-            for field in self._meta.fields
-            if field.attname in self.__dict__
-        }
-
-    @staticmethod
-    def _states_diff(state, other_state):
-        return {key: value for key, value in other_state.items() if value != state[key]}
-
-    def get_dirty_fields(self):
-        return self._states_diff(self.current_state, self.cleaned_state)
-
-    def get_unsaved_fields(self):
-        if not self.saved_state:
-            return list(self.current_state.keys())
-
-        return list(self._states_diff(self.current_state, self.saved_state).keys())
-
-    @property
-    def is_cleaned(self):
-        if not getattr(self, ".cleaned", False):
-            return False
-
-        return not self.get_dirty_fields()
-
-    @is_cleaned.setter
-    def is_cleaned(self, value):
-        if value:
-            self.cleaned_state = self.current_state.copy()
-
-        setattr(self, ".cleaned", value)
-
-    def save(self, *args, **kwargs):
-        if not self.is_cleaned:
-            self.full_clean()
-
-        super().save(*args, **kwargs)
-
-        self.initial_state = self.current_state.copy()
-        if kwargs.get("update_fields") is None:
-            self.saved_state = self.current_state.copy()
-        else:
-            for field in kwargs["update_fields"]:
-                if field not in self.current_state:
-                    continue
-
-                self.saved_state[field] = self.current_state[field]
-
-    def refresh_from_db(self, *args, **kwargs):
-        super().refresh_from_db(*args, **kwargs)
-
-        self._init_states()
-
-    def full_clean(self, *args, **kwargs):
-        if self.is_cleaned:
-            return
-
-        super().full_clean(*args, **kwargs)
-
-        self.is_cleaned = True
+from django_woah.utils.models import AutoCleanModel
 
 
 class UserGroupKind(models.TextChoices):
@@ -109,9 +33,9 @@ class UserGroupKind(models.TextChoices):
 class UserGroup(AutoCleanModel):
     KINDS = UserGroupKind
 
-    uuid = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
-    name = models.CharField(max_length=128, null=True, blank=True)
-    display_name = models.CharField(max_length=256, null=True, blank=True)
+    id = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
+
+    name = models.CharField(max_length=80, blank=True)
     kind = models.CharField(choices=UserGroupKind.choices, max_length=16)
 
     # TODO: should this be nullable?
@@ -138,8 +62,7 @@ class UserGroup(AutoCleanModel):
         "django_woah.Membership", null=True, blank=True, on_delete=models.CASCADE
     )
 
-    # rename to parent_user
-    # TODO: is this needed anymore, now that there is an owner field that points to org user
+    # This is some denormalization, but it's possibly useful
     related_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         related_name="related_user_groups",
@@ -155,15 +78,6 @@ class UserGroup(AutoCleanModel):
                 name="unique_usergroup_owner_kind_related_user",
             ),
         ]
-
-    def full_clean(self, *args, **kwargs):
-        if self.kind == self.KINDS.ROOT:
-            try:
-                self.related_user
-            except UserGroup.related_user.RelatedObjectDoesNotExist:
-                self.related_user = self.owner
-
-        return super().full_clean(*args, **kwargs)
 
     def clean(self):
         if self.root and not self.parent:
@@ -181,17 +95,12 @@ class UserGroup(AutoCleanModel):
             if self.kind == UserGroupKind.USER:
                 username = f"user:{str(self.related_user)} "
 
-            self.name = "".join(
-                element
-                for element in [str(self.owner), username, str(UserGroup)]
-                if element
+            self.name = " ".join(
+                element for element in [str(self.owner), username, self.kind] if element
             )
 
     def __str__(self):
-        name = f"{self.owner} {self.kind}"
-
-        if self.parent_membership:
-            name = f"{name}: {self.parent_membership}"
+        name = f"{self.name}"
 
         return name
 
@@ -243,6 +152,8 @@ class AssignedPermManager(models.Manager):
 
 
 class AssignedPerm(AutoCleanModel):
+    id = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
+
     user_group = models.ForeignKey(
         UserGroup, on_delete=models.CASCADE, related_name="group_assigned_perms"
     )
@@ -296,7 +207,7 @@ class AssignedPerm(AutoCleanModel):
 
 
 class Membership(AutoCleanModel):
-    uuid = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
+    id = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="memberships"

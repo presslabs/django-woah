@@ -1,6 +1,6 @@
 # django-woah
-A package intended to aid developers in implementing authorization for Django apps.
-
+A package intended to aid developers in implementing authorization for Django apps.  
+*This project is developed at [Presslabs](https://www.presslabs.com/).*
 
 ## Installation
 `pip install django-woah`
@@ -123,17 +123,17 @@ from django_woah.authorization import TransitiveFromRelationPerms
 
 
 class IssueAuthorizationScheme(ModelAuthorizationScheme):
-  # [...]
+    # [...]
 
-  def get_indirect_perms(self, context: Context) -> list[IndirectPerms]:
-    return [
-      # [...],
-      # You'd need to have a ProjectAuthorizationScheme in place for
-      # this to properly work, but it's out of scope for this example.
-      TransitiveFromRelationPerms(
-        relation="project",
-      ),
-    ]
+    def get_indirect_perms(self, context: Context) -> list[IndirectPerms]:
+        return [
+            # [...],
+            # You'd need to have a ProjectAuthorizationScheme in place for
+            # this to properly work, but it's out of scope for this example.
+            TransitiveFromRelationPerms(
+                relation="project",
+            ),
+        ]
 ```
 
 What if we want to allow authors to manage their own issues a bit?
@@ -144,7 +144,7 @@ from django_woah.authorization import QCondition
     def get_indirect_perms(self, context: Context) -> list[IndirectPerms]:
         return [
             # [...],
-            QCondition(
+            ConditionalPerms(
                 conditions=[
                     # The implicit membership condition we defined above,
                     # will still apply, so if the author were to lose
@@ -190,15 +190,16 @@ To see more code in action you can check the [examples](https://github.com/press
 - Although the library hasn't reached version 1.0 yet, it is soon going to be used in production at Presslabs, with most, if not all of it's functionality tested.
 - This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). That means until version 1.0, breaking changes are to be expected from one version to another, although they will be documented in the [changelog](CHANGELOG.MD).
 - There is a good chance for pre-1.0 versions to be maintained for a while, in terms of compatibility with newer Django and Python versions, as well as critical bugfixes. You might have to provide a pull request yourself though, but we'll, at the least, review it and hopefully ship it in a maintenance release.
-- The abstractions around how Conditions are composed and relate to AuthorizationSchemes/Solver could've been more inspired (see [Shortcomings](#shortcomings)). Therefore, a major rework could happen before the 1.0 release, but chances are it will take a while longer to materialize, as the current API is *usable* enough.
+- The abstractions around how Conditions are composed and relate to AuthorizationSchemes/Solver could've been more inspired (see [Shortcomings and Limitations](#shortcomings-and-limitations)). Therefore, a major rework could happen before the 1.0 release, but chances are it will take a while longer to materialize, as the current API is *usable* enough.
 
 
-## Shortcomings
+## Shortcomings and Limitations
 
+- The models and logic currently work with a single owner type relation, pointing to the Django `AUTH_USER_MODEL`. This implies that your Organizations must share the same model with your Users (which we believe simplifies things for most cases). It should be possible to work around this limitation, but out of the box everything is set up to work this way.
 - It's hard (and not performant) to interrogate who all the users with privileges for a resource are.
 - It's not possible to define and store new permissions/roles in the DB.
 - It's cumbersome to verify if a subset of *Conditions* is being met. And when enforcing authorization, it's kind of impossible to reveal the conditions that have not been met.
-- Verifying authorization for already prefetched resources, in cases where conditions can be satisfied without the need to fetch AssignedPerms, or the AssignedPerms have been prefetched as well, could be more performant. The best way of doing it now is filtering for which of them is satisfy authorization, as if they weren't prefetched to begin with.
+- Verifying authorization for already prefetched resources, in cases where conditions can be satisfied without the need to fetch AssignedPerms, or the AssignedPerms have been prefetched as well, could be more performant. The best way of doing it now is filtering which of them the actor is authorized for, as if they weren't prefetched to begin with.
 - For some cases, prefetching AssignedPerms could be avoided, and the whole authorization interrogation could be done with a single query... but not with how the abstraction is currently built. That single query would consist of more DB joins, so it's hard to tell if a potential performance increase is left on the table or not, without actual benchmarks.
 - Memberships could be made more optional in the whole design, but it's not clear if that's of any importance right now.
 - Some "meta" indirect privileges are hard (or even impossible) to implement, especially in a performant manner. For example: giving privileges that other users possess, based on a relation between the actor and the respective users, if say they are part of the same UserGroups. 
@@ -213,7 +214,8 @@ If these are dealbreakers for you or you are simply looking for something else, 
 - For security related issues (think exploitable bugs), contact us at `ping@presslabs.com`.
 - For other type of bugs, use the [issue tracker](https://github.com/presslabs/django-woah/issues).
 - If you have questions, or want to talk about missing functionality, open a [discussion](https://github.com/presslabs/django-woah/discussions).
-- You may send a [pull request](https://github.com/presslabs/django-woah/pulls) for bugfixing, if you think you've got it right. For anything else, if the implementation details have not already been decided, it's better to start a [discussion](https://github.com/presslabs/django-woah/discussions) first.
+- You may send a [pull request](https://github.com/presslabs/django-woah/pulls) for bugfixing, if you think you've got it right. For anything else, if the implementation details have not already been decided, it's better to start a [discussion](https://github.com/presslabs/django-woah/discussions) first.   
+  Do take note that we're looking to implement a CLA for code contributions.
 - For anything else, just use common sense and it will probably be fine.
 
 

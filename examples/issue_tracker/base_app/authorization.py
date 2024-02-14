@@ -1,3 +1,17 @@
+#  Copyright 2024 Pressinfra SRL
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 from django.db.models import Q
 
 from django_woah.authorization import (
@@ -105,8 +119,6 @@ class IssueAuthorizationScheme(ModelAuthorizationScheme):
 
 class MembershipAuthorizationScheme(ModelAuthorizationScheme):
     model = Membership
-    # TODO: would it hurt to have this point to the root_user_group__related_user or even replace
-    # that with a direct relation to the Account (think performance vs DX)
     owner_relation = "root_user_group"
 
     class Perms(PermEnum):

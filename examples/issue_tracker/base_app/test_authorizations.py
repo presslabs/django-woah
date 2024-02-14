@@ -34,7 +34,7 @@ def test_list_assigned_perms(api_client, account, organization):
         {
             "url": f"http://testserver/api/assigned_perms/{assigned_perm.pk}",
             "perm": MembershipAuthorizationScheme.Perms.MEMBERSHIP_CREATE,
-            "user_group": f"http://testserver/api/user_groups/{account_user_group.uuid}",
+            "user_group": f"http://testserver/api/user_groups/{account_user_group.id}",
             "resource": None,
         },
     ]
@@ -72,9 +72,9 @@ def test_add_assigned_perm_actor_cant_give_rights_they_dont_have(
     response = api_client.post(
         reverse_lazy("assigned-perm-list"),
         data={
-            "user_group": f"http://testserver/api/user_groups/{unrelated_account_user_group.uuid}",
+            "user_group": f"http://testserver/api/user_groups/{unrelated_account_user_group.id}",
             "perm": MembershipAuthorizationScheme.Perms.MEMBERSHIP_CREATE,
-            "resource": f"http://testserver/api/user_groups/{root_org_user_group.uuid}",
+            "resource": f"http://testserver/api/user_groups/{root_org_user_group.id}",
         },
     )
 
@@ -120,9 +120,9 @@ def test_add_assigned_perm_when_assigned_perm_is_given_on_user_group(
     response = api_client.post(
         reverse_lazy("assigned-perm-list"),
         data={
-            "user_group": f"http://testserver/api/user_groups/{unrelated_account_user_group.uuid}",
+            "user_group": f"http://testserver/api/user_groups/{unrelated_account_user_group.id}",
             "perm": MembershipAuthorizationScheme.Perms.MEMBERSHIP_CREATE,
-            "resource": f"http://testserver/api/user_groups/{root_org_user_group.uuid}",
+            "resource": f"http://testserver/api/user_groups/{root_org_user_group.id}",
         },
     )
 
@@ -132,8 +132,8 @@ def test_add_assigned_perm_when_assigned_perm_is_given_on_user_group(
     assert response.data == {
         "url": f"http://testserver/api/assigned_perms/{created_assigned_perm.pk}",
         "perm": MembershipAuthorizationScheme.Perms.MEMBERSHIP_CREATE,
-        "user_group": f"http://testserver/api/user_groups/{unrelated_account_user_group.uuid}",
-        "resource": f"http://testserver/api/user_groups/{root_org_user_group.uuid}",
+        "user_group": f"http://testserver/api/user_groups/{unrelated_account_user_group.id}",
+        "resource": f"http://testserver/api/user_groups/{root_org_user_group.id}",
     }
 
 
@@ -175,9 +175,9 @@ def test_add_assigned_perm_when_assigned_perm_is_given_on_user_group(
 #     response = api_client.post(
 #         reverse_lazy("assigned-perm-list"),
 #         data={
-#             "user_group": f"http://testserver/api/user_groups/{unrelated_account_user_group.uuid}",
+#             "user_group": f"http://testserver/api/user_groups/{unrelated_account_user_group.id}",
 #             "perm": MembershipAuthorizationScheme.Perms.MEMBERSHIP_CREATE,
-#             "resource": f"http://testserver/api/user_groups/{root_org_user_group.uuid}",
+#             "resource": f"http://testserver/api/user_groups/{root_org_user_group.id}",
 #         },
 #     )
 #
@@ -187,6 +187,6 @@ def test_add_assigned_perm_when_assigned_perm_is_given_on_user_group(
 #     assert response.data == {
 #         "url": f"http://testserver/api/assigned_perms/{created_assigned_perm.pk}",
 #         "perm": MembershipAuthorizationScheme.Perms.MEMBERSHIP_CREATE,
-#         "user_group": f"http://testserver/api/user_groups/{unrelated_account_user_group.uuid}",
-#         "resource": f"http://testserver/api/user_groups/{root_org_user_group.uuid}",
+#         "user_group": f"http://testserver/api/user_groups/{unrelated_account_user_group.id}",
+#         "resource": f"http://testserver/api/user_groups/{root_org_user_group.id}",
 #     }

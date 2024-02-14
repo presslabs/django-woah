@@ -1,3 +1,17 @@
+#  Copyright 2024 Pressinfra SRL
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 import uuid6
 
 from django.contrib.auth.base_user import AbstractBaseUser
@@ -5,7 +19,7 @@ from django.db import models
 
 
 class Account(AbstractBaseUser):
-    uuid = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
+    id = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
 
     username = models.CharField(max_length=64, unique=True)
     USERNAME_FIELD = "username"
@@ -25,7 +39,7 @@ class Account(AbstractBaseUser):
 
 
 class Project(models.Model):
-    uuid = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
+    id = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
 
     owner = models.ForeignKey(
         Account, on_delete=models.CASCADE, related_name="owned_projects"
@@ -51,7 +65,7 @@ class IssueState(models.TextChoices):
 
 
 class Issue(models.Model):
-    uuid = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
+    id = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
 
     owner = models.ForeignKey(
         Account, on_delete=models.CASCADE, related_name="owned_issues"
@@ -75,7 +89,7 @@ class Issue(models.Model):
 
 
 class HistoricIssueVersion(models.Model):
-    uuid = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
+    id = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
 
     issue = models.ForeignKey(Issue, on_delete=models.CASCADE)
 
@@ -88,14 +102,14 @@ class HistoricIssueVersion(models.Model):
 
 
 class Assignation(models.Model):
-    uuid = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
+    id = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
 
     issue = models.ForeignKey(Issue, on_delete=models.CASCADE)
     user = models.ForeignKey(Account, null=True, blank=True, on_delete=models.SET_NULL)
 
 
 class Comment(models.Model):
-    uuid = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
+    id = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
 
     issue = models.ForeignKey(Issue, on_delete=models.CASCADE)
 

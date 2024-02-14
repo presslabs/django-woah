@@ -1,3 +1,17 @@
+#  Copyright 2024 Pressinfra SRL
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 from rest_framework.viewsets import ModelViewSet
 
 from django_woah.drf.views import AuthorizationViewSetMixin
@@ -21,7 +35,7 @@ from ..authorization import (
 
 class IssueViewSet(AuthorizationViewSetMixin, ModelViewSet):
     serializer_class = IssueSerializer
-    lookup_field = "uuid"
+    lookup_field = "id"
     lookup_url_kwarg = "issue_id"
 
     authorization_solver = AuthorizationSolver
@@ -37,7 +51,7 @@ class IssueViewSet(AuthorizationViewSetMixin, ModelViewSet):
 
 class AccountViewSet(AuthorizationViewSetMixin, ModelViewSet):
     serializer_class = AccountSummarySerializer
-    lookup_field = "uuid"
+    lookup_field = "id"
     lookup_url_kwarg = "account_id"
 
     authorization_solver = AuthorizationSolver
@@ -53,7 +67,7 @@ class AccountViewSet(AuthorizationViewSetMixin, ModelViewSet):
 
 class MembershipViewSet(AuthorizationViewSetMixin, ModelViewSet):
     serializer_class = MembershipSerializer
-    lookup_field = "uuid"
+    lookup_field = "id"
     lookup_url_kwarg = "membership_id"
 
     authorization_solver = AuthorizationSolver
@@ -66,27 +80,10 @@ class MembershipViewSet(AuthorizationViewSetMixin, ModelViewSet):
     def get_queryset(self):
         return self.get_requested_model_queryset()
 
-    # def get_authorization_relation(self):
-    #     # TODO: A difference between is_action_authorized and filter_authorized_resources might
-    #     # prove to be useful, for cases like this one. Or where there is no model object to begin with.
-    #
-    #     if self.request.method == "POST":
-    #         return "user_group"
-    #
-    #     return super().get_authorization_relation()
-
-    # def get_authorization_model_object(self):
-    #     if self.request.method == "POST":
-    #         user_group_pk = self.request.data["user_group"].pk
-    #
-    #         return self.authorization_solver.get_authorized_resources_queryset()
-    #
-    #     return super().get_authorization_model_object()
-
 
 class UserGroupViewSet(AuthorizationViewSetMixin, ModelViewSet):
     serializer_class = UserGroupSerializer
-    lookup_field = "uuid"
+    lookup_field = "id"
     lookup_url_kwarg = "user_group_id"
 
     authorization_solver = AuthorizationSolver
@@ -114,12 +111,6 @@ class AssignedPermViewSet(AuthorizationViewSetMixin, ModelViewSet):
 
     def get_queryset(self):
         return self.get_requested_model_queryset()
-
-    # def get_authorization_relation(self):
-    #     if self.request.method == "POST":
-    #         return "root"
-    #
-    #     return super().get_authorization_relation()
 
     def get_authorization_context_extra(self, *args, **kwargs) -> dict:
         if self.request.method == "POST":
