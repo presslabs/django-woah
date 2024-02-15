@@ -1,5 +1,6 @@
 # django-woah
 A package intended to aid developers in implementing authorization for Django apps.  
+
 *This project is developed at [Presslabs](https://www.presslabs.com/).*
 
 ## Installation
@@ -55,8 +56,8 @@ Now, let's define an AuthorizationScheme for our Issue model, starting with some
 ```python
 # my_app/issue_tracker/authorization.py
 # Here you can define authorization schemes for your models
-from django_woah.authorization import ModelAuthorizationScheme, PermEnum
 
+from django_woah.authorization import ModelAuthorizationScheme, PermEnum
 
 class IssueAuthorizationScheme(ModelAuthorizationScheme):
     model = Issue
@@ -97,7 +98,7 @@ class IssueAuthorizationScheme(ModelAuthorizationScheme):
         ]
 ```
 
-Now we might want to ensure that only members/collaborators of the same organization that owns the issue may receive authorization. For that we must establish the owner_relation (field) of the Issue model, and set up an implicit condition that will represent our Membership check.
+Now we might want to ensure that only members/collaborators of the organization that owns the issue may receive authorization. For that we must establish the owner_relation (field) of the Issue model, and set up an implicit condition that will represent our Membership check.
 ```python
 # my_app/issue_tracker/authorization.py
 

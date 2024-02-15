@@ -193,6 +193,13 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.AddConstraint(
+            model_name="usergroup",
+            constraint=models.UniqueConstraint(
+                fields=("owner", "parent", "kind", "name"),
+                name="unique_usergroup_localized_name",
+            ),
+        ),
+        migrations.AddConstraint(
             model_name="membership",
             constraint=models.UniqueConstraint(
                 fields=("user", "user_group"), name="unique_user_to_group_membership"
