@@ -77,6 +77,10 @@ class UserGroup(AutoCleanModel):
                 fields=("owner", "kind", "related_user"),
                 name="unique_usergroup_owner_kind_related_user",
             ),
+            UniqueConstraint(
+                fields=("owner", "parent", "kind", "name"),
+                name="unique_usergroup_localized_name",
+            ),
         ]
 
     def clean(self):
