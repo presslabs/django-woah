@@ -13,7 +13,9 @@
 #  limitations under the License.
 
 import enum
-from django.db.models import Q
+
+from django.core.exceptions import FieldDoesNotExist
+from django.db.models import Q, Field, ManyToManyField
 from functools import reduce
 from typing import Optional, Callable
 
@@ -245,21 +247,29 @@ class HasRelatedResourcePerms(Condition):
         # For example for "relation" you should set the GenericRelation.related_query_name, but for
         # "unsaved_object_relation" you should set the GenericForeignKey field name (usually "content_object")
         self.unsaved_object_relation = unsaved_object_relation or self.relation
+        self.field: Field
 
         super().__init__(**kwargs)
 
     def set_scheme(self, scheme):
         super().set_scheme(scheme)
 
-        # TODO: Check if relation actually exists on the scheme's Model.
         try:
             self.related_scheme = self.scheme.get_auth_scheme_by_relation(self.relation)
         except ValueError:
             # TODO: only catch this when the relation is generic, because most of the times the ValueError exc is valid
             #  and should raise
-            self.related_scheme = self.scheme.auth_solver.get_auth_scheme_for_model(
-                self.perms[0].auth_scheme.model
-            )
+            model = self.perms[0].auth_scheme.model
+            self.related_scheme = self.scheme.auth_solver.get_auth_scheme_for_model(model)
+
+        # TODO: check the relationship all the way, not just the first field
+        model = self.scheme.model
+        field_name = self.relation.split("__", 1)[0]
+
+        try:
+            self.field = model._meta.get_field(field_name)
+        except FieldDoesNotExist:
+            raise AttributeError(f"{field_name} was specified in {self.__class__} 'owner_relation', but doesn't exist on {model}")
 
     def get_resources_q(self, context: Context) -> Optional[Q]:
         qs = [
