@@ -422,7 +422,6 @@ class AuthorizationModelViewSet(
     mixins.UpdateModelMixin,
     mixins.DestroyModelMixin,
     mixins.ListModelMixin,
-    AuthorizationViewSetMixin,
-    GenericViewSet,
+    AuthorizationGenericViewSet,
 ):
     pass
