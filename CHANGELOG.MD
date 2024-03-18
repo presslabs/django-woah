@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add a check for the first field in HasRelatedResourcePerms.relation
 - Add uniqueness checks for PermEnum values
 
+### Changed
+- Lax some in-code assumptions to allow using non-Model classes
+
 
 ## [0.1.3] - 2024-02-15
 ### Changed

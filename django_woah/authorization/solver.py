@@ -11,7 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
+from inspect import isclass
 from typing import Optional
 
 from django.db.models import Q, Model, Manager, Subquery
@@ -124,7 +124,10 @@ class AuthorizationSolver:
         elif issubclass(resources, Model):
             model = resources
         else:
-            model = resources[0].__class__
+            model = resources
+
+            if not isclass(model):
+                model = model[0].__class__
 
         return model
 

@@ -279,7 +279,7 @@ class AuthorizationViewSetMixin:
             }
         )
 
-    def get_unsaved_resource(self) -> Model:
+    def get_unsaved_resource(self, initial_obj=None) -> Model:
         """
         This method is used to obtain an instance of the unsaved resource against which authorization will be run.
         It is written such that it minimizes the cases where exceptions are raised, in case of ValidationErrors,
@@ -331,7 +331,14 @@ class AuthorizationViewSetMixin:
 
         data = {k: v for k, v in data.items() if k not in reverse_relations}
 
-        resource = serializer.Meta.model(**data)
+        if not initial_obj:
+            resource = serializer.Meta.model(**data)
+        else:
+            resource = initial_obj
+
+            for k, v in data.items():
+                setattr(resource, k, v)
+
         if getattr(
             self,
             "authorization_clean_unsaved_resource",
@@ -353,7 +360,17 @@ class AuthorizationViewSetMixin:
         # TODO move this in context initialization
         combined_context = self.get_authorization_context()
 
-        if self.authorization_model != self.model:
+        try:
+            authorization_model = self.authorization_model
+        except AttributeError:
+            authorization_model = None
+
+        try:
+            resource_model = self.model
+        except AttributeError:
+            resource_model = None
+
+        if authorization_model != resource_model:
             # If the authorization model is different from the one being serialized it makes no sense
             # to use get_unsaved_resource, so get_authorization_model_object is used as it's probably
             # the one deciding the authorization
