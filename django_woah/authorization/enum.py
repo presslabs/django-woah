@@ -16,6 +16,11 @@ import enum
 
 
 class PermEnum(enum.StrEnum):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        enum.unique(self.__class__)
+
     def __repr__(self):
         if not hasattr(self, "auth_scheme"):
             return super().__repr__()

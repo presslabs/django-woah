@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 ### Added
 - Add a check for the first field in HasRelatedResourcePerms.relation
+- Add uniqueness checks for PermEnum values
 
 
 ## [0.1.3] - 2024-02-15

@@ -27,6 +27,7 @@ class AuthorizationSolver:
     def __init__(
         self,
         authorization_schemes: list[ModelAuthorizationScheme | type[ModelAuthorizationScheme]],
+        clean_perms=True,
     ):
         self.authorization_schemes: list[ModelAuthorizationScheme] = []
 
@@ -36,6 +37,16 @@ class AuthorizationSolver:
 
             scheme.auth_solver = self
             self.authorization_schemes.append(scheme)
+
+        if clean_perms:
+            perms = {}
+
+            for scheme in self.authorization_schemes:
+                for perm in scheme.get_scheme_perms(exclude_borrowed=True):
+                    if perm.value in perms:
+                        raise ValueError(f"Found {perm.value} in both {perm.auth_scheme} and {perms[perm.value].auth_scheme}")
+
+                    perms[perm.value] = perm
 
     def clean_perm(
         self, dirty_perm: str | PermEnum
