@@ -6,7 +6,7 @@ from django_woah.models import (
     Membership,
     UserGroup,
     AssignedPerm,
-    get_or_create_root_user_group_for_account,
+    get_or_create_root_user_group,
 )
 from .authorization import (
     AccountAuthorizationScheme,
@@ -35,7 +35,7 @@ def test_list_accounts_with_no_access_to_organization(
     unrelated_account.is_organization = True
     unrelated_account.save()
 
-    get_or_create_root_user_group_for_account(unrelated_account)
+    get_or_create_root_user_group(unrelated_account)
 
     response = api_client.get(reverse_lazy("account-list"))
 

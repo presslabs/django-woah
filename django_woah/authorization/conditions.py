@@ -15,7 +15,7 @@
 import enum
 
 from django.core.exceptions import FieldDoesNotExist
-from django.db.models import Q, Field, ManyToManyField
+from django.db.models import Q, Field
 from functools import reduce
 from typing import Optional, Callable
 

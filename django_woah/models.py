@@ -11,6 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from typing import Optional
 
 import uuid6
 
@@ -264,24 +265,47 @@ class Membership(AutoCleanModel):
         self.root_user_group = root_user_group
 
 
-def get_or_create_root_user_group_for_account(account) -> UserGroup:
+def get_root_user_group(owner) -> UserGroup:
+    return UserGroup.objects.get(
+        kind=UserGroupKind.ROOT,
+        owner=owner,
+        related_user=owner,
+    )
+
+
+def get_single_user_user_group(related_to_user, owned_by_account) -> UserGroup:
+    return related_to_user.related_user_groups.get(owner=owned_by_account)
+
+
+def get_or_create_root_user_group(owner) -> UserGroup:
     return UserGroup.objects.get_or_create(
         kind=UserGroupKind.ROOT,
-        owner=account,
-        related_user=account,
+        owner=owner,
+        related_user=owner,
     )[0]
 
 
-def get_or_create_team_user_group_for_account(account, name) -> UserGroup:
-    root = UserGroup.objects.get(owner=account, kind=UserGroupKind.ROOT)
+def get_or_create_team_user_group(owner, name: str) -> UserGroup:
+    root = get_root_user_group(owner)
 
     return UserGroup.objects.get_or_create(
         name=name,
         kind=UserGroupKind.TEAM,
-        owner=account,
+        owner=owner,
         root=root,
         parent=root,
     )[0]
+
+
+def get_root_membership(user, account) -> Optional[Membership]:
+    try:
+        return Membership.objects.get(
+            user=user,
+            user_group__owner=account,
+            user_group__kind=UserGroupKind.ROOT,
+        )
+    except Membership.DoesNotExist:
+        return None
 
 
 @transaction.atomic
@@ -327,7 +351,10 @@ def add_user_to_user_group(
     return resulted_membership, resulted_user_group
 
 
-def assign_perm(perm, to_user, on_account):
-    AssignedPerm.objects.create(
-        user_group=to_user.related_user_groups.get(owner=on_account), perm=perm
+def assign_perm(perm, to_user, on_account) -> AssignedPerm:
+    return AssignedPerm.objects.create(
+        user_group=get_single_user_user_group(
+            related_to_user=to_user, owned_by_account=on_account
+        ),
+        perm=perm,
     )

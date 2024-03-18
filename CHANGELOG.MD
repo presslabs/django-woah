@@ -11,9 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add uniqueness checks for PermEnum values
 - Provide a DRF AuthorizationModelViewSet class for convenience
 - Add initial support for simple DRF Views (non-Viewset)
+- Added `get_root_membership` `get_single_user_user_group`, and `get_root_user_group` helper funcs.
 
 ### Changed
 - Lax some in-code assumptions to allow using non-Model classes
+- Renamed `ModelAuthorizationScheme`s `direct_authorization_is_allowed` to `allow_directly_assigned_perms`. **Breaking Change**
+- Renamed `get_or_create_root_user_group_for_account` helper func to `get_or_create_root_user_group`. **Breaking Change**
+- Renamed `get_or_create_team_user_group_for_account` helper func to `get_or_create_team_user_group`. **Breaking Change**
 
 ### Fixed
 - Fix case of None-value in the relation traversal in HasRootMembership

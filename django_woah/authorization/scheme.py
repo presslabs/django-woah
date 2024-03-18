@@ -39,7 +39,7 @@ class ModelAuthorizationScheme(AuthorizationScheme):
     model: type[Model]
     Perms: PermEnum
     Roles: PermEnum
-    direct_authorization_is_allowed = True
+    allow_directly_assigned_perms = True
 
     def __init__(self):
         auth_solver: "AuthorizationSolver"  # noqa: F842
@@ -106,7 +106,7 @@ class ModelAuthorizationScheme(AuthorizationScheme):
         #  So maybe using Context here as well and considering context.resource.pks, or somehow
         #  restricting to certain PKs could be the solution.
 
-        if not self.direct_authorization_is_allowed:
+        if not self.allow_directly_assigned_perms:
             return None
 
         owner_based_q = None
@@ -229,7 +229,7 @@ class ModelAuthorizationScheme(AuthorizationScheme):
         return q
 
     def get_directly_assigned_perms_q(self, context: Context) -> Optional[Q]:
-        if not self.direct_authorization_is_allowed:
+        if not self.allow_directly_assigned_perms:
             return None
 
         q = Q(
