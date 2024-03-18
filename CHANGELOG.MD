@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Add a check for the first field in HasRelatedResourcePerms.relation
 - Add uniqueness checks for PermEnum values
+- Provide a DRF AuthorizationModelViewSet class for convenience
 
 ### Changed
 - Lax some in-code assumptions to allow using non-Model classes

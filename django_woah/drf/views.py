@@ -19,6 +19,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Model
 from django.db.models import Q
 from django.http import Http404
+from rest_framework import mixins
 from rest_framework.exceptions import (
     MethodNotAllowed,
     PermissionDenied,
@@ -413,3 +414,15 @@ class AuthorizationGenericViewSet(AuthorizationViewSetMixin, GenericViewSet):
             return super().get_object()
         except Http404:
             raise PermissionDenied()
+
+
+class AuthorizationModelViewSet(
+    mixins.CreateModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    mixins.ListModelMixin,
+    AuthorizationViewSetMixin,
+    GenericViewSet,
+):
+    pass
