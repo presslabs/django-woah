@@ -176,7 +176,13 @@ class HasRootMembership(BaseOwnerCondition):
     def is_authorized_for_unsaved_resource(self, context: Context) -> bool:
         resource = context.resource
 
-        owner = get_object_relation(resource, self.relation)
+        try:
+            owner = get_object_relation(resource, self.relation)
+        except AttributeError as exception:
+            if str(exception).startswith("'NoneType' object has no attribute"):
+                return False
+
+            raise
 
         if not self.relation_is_user_group:
             owner = owner.owned_user_groups.get(kind="root")

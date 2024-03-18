@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Lax some in-code assumptions to allow using non-Model classes
 
+### Fixed
+- Fix case of None-value in the relation traversal in HasRootMembership
+
 
 ## [0.1.3] - 2024-02-15
 ### Changed
