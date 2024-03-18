@@ -28,7 +28,14 @@ class IsAuthorized(BasePermission):
             return view.http_method_not_allowed(request)
 
         if not hasattr(view, "action"):
-            return view.permission_denied(request)
+            if request.method == "POST":
+                return view.is_authorized_for_unsaved_resource()
+
+            return self.has_object_permission(
+                request,
+                view,
+                obj=view.get_authorization_model_object(skip_authorization=True),
+            )
 
         if getattr(view, "action", None):
             if view.action == "list" or (
@@ -55,7 +62,11 @@ class IsAuthorized(BasePermission):
         # TODO: see what to do with "obj" parameter
         # return obj == view.get_authorization_model_object() breaks some cases
 
-        if view.action == "create":
+        if not hasattr(view, "action"):
+            if request.method == "POST":
+                return view.is_authorized_for_unsaved_resource()
+
+        elif view.action == "create":
             return view.is_authorized_for_unsaved_resource()
 
         obj = view.get_authorization_model_object()
