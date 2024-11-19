@@ -29,6 +29,7 @@ class IsAuthorized(BasePermission):
 
         if not hasattr(view, "action"):
             if request.method == "POST":
+                # DRF has this "nice" way of testing if it should render a POST form in the default browsable API
                 return view.is_authorized_for_unsaved_resource()
 
             return self.has_object_permission(
@@ -64,6 +65,7 @@ class IsAuthorized(BasePermission):
 
         if not hasattr(view, "action"):
             if request.method == "POST":
+                # DRF has this "nice" way of testing if it should render a POST form in the default browsable API
                 return view.is_authorized_for_unsaved_resource()
 
         elif view.action == "create":

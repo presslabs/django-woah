@@ -392,17 +392,30 @@ class AuthorizationViewSetMixin:
                 context=combined_context,
             ).exists()
 
-        resource = self.get_unsaved_resource()
+        try:
+            resource = self.get_unsaved_resource()
 
-        if resource is None:
-            return False
+            if resource is None:
+                return False
 
-        for context in combined_context.contexts:
-            context.resource = resource
+            for context in combined_context.contexts:
+                context.resource = resource
 
-        return self.authorization_solver.is_authorized_for_unsaved_resource(
-            context=combined_context,
-        )
+            return self.authorization_solver.is_authorized_for_unsaved_resource(
+                context=combined_context,
+            )
+        except (AttributeError, ValueError) as exception:
+            if not self.request.data:
+                # DRF has this "nice" way of testing if it should render a POST form in the default browsable API
+                serializer = self.get_serializer(data=self.request.data)
+
+                if not serializer.is_valid(raise_exception=False):
+                    # If the payload is not valid, it means we can allow authorization to pass since it will fail
+                    # at the validation step even if it were a real request
+                    # This will allow a POST form to be rendered in the browsable API, instead of getting a 500 error
+                    return True
+
+            raise
 
 
 class AuthorizationGenericViewSet(AuthorizationViewSetMixin, GenericViewSet):

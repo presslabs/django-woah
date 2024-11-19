@@ -35,6 +35,7 @@ class AccountSummarySerializer(serializers.ModelSerializer):
 
         fields = [
             "username",
+            "is_organization",
             "email",
             "name",
             "is_organization",

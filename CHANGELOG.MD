@@ -23,6 +23,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix case of None-value in the relation traversal in HasRootMembership
 
 
+## [0.2] - 2024-11-19
+### Added
+- Permissions / roles are now checked at definition time.
+- Model relations are now checked to exist, albeit only one-level deep for now.
+- Added experimental (as in this might be later removed) operators to Conditions, such that you could write some logic like:
+    ```python
+    def get_indirect_perms(self, context: Context) -> list[IndirectPerms]:
+       return [
+           (HasRootMembership(context.actor) | HasSameResourcePerms([self.Roles.OWNER]))
+                >> [
+                    self.Perms.ACCOUNT_VIEW_MINIMAL,
+                ],
+        ]
+    ```
+- Added a few new helper functions in models.py, and slightly improved some existing ones.
+- Added a convenience AuthorizationModelViewSet class in 
+- 
+### Changes
+These are **Breaking Changes**:
+- Renamed `ModelAuthorizationScheme`'s `direct_authorization_is_allowed` to `allow_directly_assigned_perms`.
+
+### Fixes
+- Fixed a bunch of 500 errors in DRF browsable API mostly related to unsaved resources, but also DRF quirks.
+- Handled some attribute traversal errors exceptions, where it was sensible to do so.
+
+
 ## [0.1.3] - 2024-02-15
 ### Changed
 - Add a (semi) uniqueness constraint for UserGroup names. Reusing the initial migration, which is a **Breaking Change**, but as mentioned before, the project is not public yet.
