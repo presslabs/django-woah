@@ -12,12 +12,13 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from __future__ import annotations
 import enum
 
-from django.core.exceptions import FieldDoesNotExist
+from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
 from django.db.models import Q, Field
 from functools import reduce
-from typing import Optional, Callable
+from typing import Optional, Callable, TYPE_CHECKING
 
 from django_woah.models import UserGroup
 from django_woah.utils.q import (
@@ -28,6 +29,9 @@ from django_woah.utils.q import (
 )
 from .context import Context
 from .enum import PermEnum
+
+if TYPE_CHECKING:
+    from . import ConditionalPerms
 
 
 class Condition:
@@ -55,6 +59,13 @@ class Condition:
     def __or__(self, other):
         return CombinedCondition(self, other, operation=CombinedCondition.OPERATIONS.OR)
 
+    def __rshift__(self, other: list[PermEnum]) -> "ConditionalPerms":
+        from .indirect_perms import ConditionalPerms
+
+        return ConditionalPerms(
+            conditions=[self],
+            receives_perms=other
+        )
 
 class CombinedCondition(Condition):
     class OPERATIONS(enum.StrEnum):
@@ -178,11 +189,21 @@ class HasRootMembership(BaseOwnerCondition):
 
         try:
             owner = get_object_relation(resource, self.relation)
+        except ObjectDoesNotExist:
+            return False
         except AttributeError as exception:
             if str(exception).startswith("'NoneType' object has no attribute"):
                 return False
 
             raise
+        except ValueError as exception:
+            if str(exception).endswith("before this many-to-many relationship can be used."):
+                return False
+
+            raise
+
+        if not owner:
+            return False
 
         if not self.relation_is_user_group:
             owner = owner.owned_user_groups.get(kind="root")

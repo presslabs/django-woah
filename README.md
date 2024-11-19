@@ -183,12 +183,12 @@ To see more code in action you can check the [examples](https://github.com/press
 
 ## Performance
 
-- Although proper benchmarks haven't been conducted, performance should be decent. Most authorization checks can be done with 2 queries: one to fetch AssignedPerms, and one to filter the resources which the user is authorized to act on.
+- Although proper benchmarks haven't been conducted, performance should be decent. Most authorization checks can be done with 2 queries: one to fetch AssignedPerms, and one to filter the resources on which the actor is authorized to perform.
 
 
 ## Current status and future plans
 
-- Although the library hasn't reached version 1.0 yet, it is soon going to be used in production at Presslabs, with most, if not all of it's functionality tested.
+- The library has been used in production at Presslabs since ~2024.04 (v0.1.3), with most, if not all of it's functionality tested.
 - This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). That means until version 1.0, breaking changes are to be expected from one version to another, although they will be documented in the [changelog](CHANGELOG.MD).
 - There is a good chance for pre-1.0 versions to be maintained for a while, in terms of compatibility with newer Django and Python versions, as well as critical bugfixes. You might have to provide a pull request yourself though, but we'll, at the least, review it and hopefully ship it in a maintenance release.
 - The abstractions around how Conditions are composed and relate to AuthorizationSchemes/Solver could've been more inspired (see [Shortcomings and Limitations](#shortcomings-and-limitations)). Therefore, a major rework could happen before the 1.0 release, but chances are it will take a while longer to materialize, as the current API is *usable* enough.
@@ -205,7 +205,7 @@ To see more code in action you can check the [examples](https://github.com/press
 - Memberships could be made more optional in the whole design, but it's not clear if that's of any importance right now.
 - Some "meta" indirect privileges are hard (or even impossible) to implement, especially in a performant manner. For example: giving privileges that other users possess, based on a relation between the actor and the respective users, if say they are part of the same UserGroups. 
 - This library is mostly intended to be used in conjunction with APIs. There is (currently) no built-in support for the Django Admin, and no plan to add one unless there is enough interest for it and somebody contributes it. 
-- Authorization Schemes are based on Python classes, and not on some configuration system, but this is more of a preference thing.
+- Authorization Schemes are based on Python classes, and not on some serializable configuration system, but this is more of a preference thing.
 
 If these are dealbreakers for you or you are simply looking for something else, check the [alternatives](#alternatives).
 
