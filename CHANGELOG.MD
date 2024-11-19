@@ -6,27 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+- N/A
+
+
+## [0.2] - 2024-11-19
 ### Added
 - Add a check for the first field in HasRelatedResourcePerms.relation
 - Add uniqueness checks for PermEnum values
 - Provide a DRF AuthorizationModelViewSet class for convenience
 - Add initial support for simple DRF Views (non-Viewset)
 - Added `get_root_membership` `get_single_user_user_group`, and `get_root_user_group` helper funcs.
-
-### Changed
-- Lax some in-code assumptions to allow using non-Model classes
-- Renamed `ModelAuthorizationScheme`s `direct_authorization_is_allowed` to `allow_directly_assigned_perms`. **Breaking Change**
-- Renamed `get_or_create_root_user_group_for_account` helper func to `get_or_create_root_user_group`. **Breaking Change**
-- Renamed `get_or_create_team_user_group_for_account` helper func to `get_or_create_team_user_group`. **Breaking Change**
-
-### Fixed
-- Fix case of None-value in the relation traversal in HasRootMembership
-
-
-## [0.2] - 2024-11-19
-### Added
-- Permissions / roles are now checked at definition time.
-- Model relations are now checked to exist, albeit only one-level deep for now.
 - Added experimental (as in this might be later removed) operators to Conditions, such that you could write some logic like:
     ```python
     def get_indirect_perms(self, context: Context) -> list[IndirectPerms]:
@@ -37,12 +26,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
                 ],
         ]
     ```
-- Added a few new helper functions in models.py, and slightly improved some existing ones.
-- Added a convenience AuthorizationModelViewSet class in 
-- 
-### Changes
-These are **Breaking Changes**:
-- Renamed `ModelAuthorizationScheme`'s `direct_authorization_is_allowed` to `allow_directly_assigned_perms`.
+
+### Changed
+- Lax some in-code assumptions to allow using non-Model classes
+- Renamed `ModelAuthorizationScheme`s `direct_authorization_is_allowed` to `allow_directly_assigned_perms`. **Breaking Change**
+- Renamed `get_or_create_root_user_group_for_account` helper func to `get_or_create_root_user_group`. **Breaking Change**
+- Renamed `get_or_create_team_user_group_for_account` helper func to `get_or_create_team_user_group`. **Breaking Change**
 
 ### Fixes
 - Fixed a bunch of 500 errors in DRF browsable API mostly related to unsaved resources, but also DRF quirks.
