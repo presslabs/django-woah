@@ -170,11 +170,17 @@ class AuthorizationSolver:
             return model.objects.none()
 
         if base_queryset is None:
-            base_queryset = model.objects
+            base_queryset = model.objects.all()
 
-        return model.objects.filter(
+        # Copy the base_queryset, detach the ordering, and attach it to the new queryset
+        order_by = base_queryset.query.order_by
+        base_queryset = base_queryset.all().order_by()
+
+        queryset = model.objects.filter(
             pk__in=Subquery(base_queryset.filter(q).values("pk").distinct())
-        )
+        ).order_by(*order_by)
+
+        return queryset
 
     def is_authorized_for_unsaved_resource(
         self, context: Optional[Context | CombinedContext] = None, **kwargs
