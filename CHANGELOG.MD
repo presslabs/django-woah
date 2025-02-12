@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+- Handle case of related object being `None` in `HasRelatedResourcePerms.is_authorized_for_unsaved_resource`
 - Preserve ordering when passing a `base_queryset` to `AuthorizationSolver.get_authorized_resources_queryset`
 
 

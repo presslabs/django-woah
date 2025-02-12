@@ -341,6 +341,9 @@ class HasRelatedResourcePerms(Condition):
     def is_authorized_for_unsaved_resource(self, context: Context) -> bool:
         resource = get_object_relation(context.resource, self.unsaved_object_relation)
 
+        if not resource:
+            return False
+
         solver = self.scheme.auth_solver
         #
         # context.resource = self.scheme.get_auth_scheme_by_relation(
