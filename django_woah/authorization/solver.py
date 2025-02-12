@@ -174,7 +174,8 @@ class AuthorizationSolver:
 
         # Copy the base_queryset, detach the ordering, and attach it to the new queryset
         order_by = base_queryset.query.order_by
-        base_queryset = base_queryset.all().order_by()
+        if order_by != ():
+            base_queryset.query.order_by = None
 
         queryset = model.objects.filter(
             pk__in=Subquery(base_queryset.filter(q).values("pk").distinct())

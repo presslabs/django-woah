@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 - Handle case of related object being `None` in `HasRelatedResourcePerms.is_authorized_for_unsaved_resource`
-- Preserve ordering when passing a `base_queryset` to `AuthorizationSolver.get_authorized_resources_queryset`
+- Preserve explicit and model defined ordering when passing a `base_queryset` to `AuthorizationSolver.get_authorized_resources_queryset`
 
 
 ## [0.2] - 2024-11-19
