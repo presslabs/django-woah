@@ -35,6 +35,12 @@ class IndirectPerms:
     def get_assigned_perms_q(self, context: Context) -> Optional[Q]:
         raise NotImplementedError
 
+    def get_memberships_q(self, context: Context) -> Optional[Q]:
+        raise NotImplementedError
+
+    def is_authorized_for_prefetched_resource(self, context: Context) -> bool:
+        raise NotImplementedError
+
     def is_authorized_for_unsaved_resource(self, context: Context) -> bool:
         raise NotImplementedError
 
@@ -69,8 +75,20 @@ class ConditionalPerms(IndirectPerms):
             connector=Q.OR,
         )
 
+    def get_memberships_q(self, context: Context) -> Optional[Q]:
+        return merge_qs(
+            [condition.get_memberships_q(context) for condition in self.conditions],
+            connector=Q.OR,
+        )
+
     def can_receive_perms(self):
         return self.receives_perms
+
+    def is_authorized_for_prefetched_resource(self, context: Context) -> bool:
+        return all(
+            condition.is_authorized_for_prefetched_resource(context)
+            for condition in self.conditions
+        )
 
     def is_authorized_for_unsaved_resource(self, context: Context) -> bool:
         return all(
@@ -126,8 +144,30 @@ class TransitiveFromRelationPerms(IndirectPerms):
             context=context.subcontext(resource=self.relation_scheme.model)
         )
 
+    def get_memberships_q(self, context: Context) -> Optional[Q]:
+        return self.relation_scheme.get_memberships_q(
+            context=context.subcontext(resource=self.relation_scheme.model)
+        )
+
     def can_receive_perms(self) -> list[PermEnum]:
         return self.restrict_to_perms
+
+    def is_authorized_for_prefetched_resource(self, context: Context) -> bool:
+        if context.perm not in self.restrict_to_perms:
+            raise ValueError(
+                f"{context.perm} not in restrict_to_perms {self.restrict_to_perms}"
+            )
+
+        context = context.subcontext(
+            resource=get_object_relation(context.resource, self.relation)
+        )
+
+        solver = self.scheme.auth_solver
+
+        context.resource = self.scheme.get_auth_scheme_by_relation(self.relation).model
+        context.assigned_perms = solver.get_assigned_perms_queryset(context)
+
+        return solver.is_authorized_for_prefetched_resource(context).exists()
 
     def is_authorized_for_unsaved_resource(self, context: Context) -> bool:
         if context.perm not in self.restrict_to_perms:

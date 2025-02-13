@@ -1,7 +1,13 @@
 from rest_framework import status
 from rest_framework.reverse import reverse_lazy
 
-from django_woah.models import Membership, UserGroup, AssignedPerm
+from django_woah.models import (
+    Membership,
+    UserGroup,
+    AssignedPerm,
+    create_user_membership_to_account,
+    get_or_create_root_user_group,
+)
 from .authorization import IssueAuthorizationScheme
 from .models import Issue, Project
 
@@ -217,3 +223,45 @@ def test_list_issues_as_org_member_and_issue_ownership(
             "content": "Help I can't install the deps!!!11",
         }
     ]
+
+
+def test_issue_get_accounts_authorized_to_view(
+    account, unrelated_account, organization
+):
+    issue = Issue.objects.create(
+        owner=organization,
+        author=account,
+        title="Issue #1",
+        content="Help I can't install the deps!!!11",
+        project=Project.objects.create(
+            owner=organization, created_by=organization, name="Project"
+        ),
+    )
+
+    assert list(
+        issue.get_authorized_accounts(IssueAuthorizationScheme.Perms.ISSUE_VIEW)
+    ) == [account]
+
+    unrelated_account_membership, _ = create_user_membership_to_account(
+        unrelated_account, organization
+    )
+
+    assert list(
+        issue.get_authorized_accounts(IssueAuthorizationScheme.Perms.ISSUE_VIEW)
+    ) == [account, unrelated_account]
+
+    account_membership = Membership.objects.get(
+        user=account, user_group=get_or_create_root_user_group(organization)
+    )
+    account_membership.delete()
+
+    assert list(
+        issue.get_authorized_accounts(IssueAuthorizationScheme.Perms.ISSUE_VIEW)
+    ) == [unrelated_account]
+
+    unrelated_account_membership.delete()
+
+    assert (
+        list(issue.get_authorized_accounts(IssueAuthorizationScheme.Perms.ISSUE_VIEW))
+        == []
+    )

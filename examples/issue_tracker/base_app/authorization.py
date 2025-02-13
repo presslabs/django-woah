@@ -105,13 +105,12 @@ class IssueAuthorizationScheme(ModelAuthorizationScheme):
                         relation="project",
                         perms=[ProjectAuthorizationScheme.Roles.PROJECT_OWNER],
                     )
+                    | QCondition(Q(author=context.actor)),
                 ],
                 receives_perms=[self.Roles.ISSUE_MANAGER],
             ),
             ConditionalPerms(
-                conditions=[
-                    QCondition(Q(author=context.actor)),
-                ],
+                conditions=[HasRootMembership(actor=context.actor)],
                 receives_perms=[self.Perms.ISSUE_VIEW],
             ),
         ]

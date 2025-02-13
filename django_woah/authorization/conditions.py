@@ -44,6 +44,12 @@ class Condition:
     def get_assigned_perms_q(self, context: Context) -> Optional[Q]:
         return None
 
+    def get_memberships_q(self, context: Context) -> Optional[Q]:
+        return None
+
+    def is_authorized_for_prefetched_resource(self, context: Context) -> bool:
+        return False
+
     def is_authorized_for_unsaved_resource(self, context: Context) -> bool:
         return False
 
@@ -62,10 +68,8 @@ class Condition:
     def __rshift__(self, other: list[PermEnum]) -> "ConditionalPerms":
         from .indirect_perms import ConditionalPerms
 
-        return ConditionalPerms(
-            conditions=[self],
-            receives_perms=other
-        )
+        return ConditionalPerms(conditions=[self], receives_perms=other)
+
 
 class CombinedCondition(Condition):
     class OPERATIONS(enum.StrEnum):
@@ -111,6 +115,24 @@ class CombinedCondition(Condition):
             lambda q1, q2: q1 | q2,
             qs,
         )
+
+    def is_authorized_for_prefetched_resource(self, context: Context) -> bool:
+        if not self.conditions:
+            return True
+
+        for condition in self.conditions:
+            ok = condition.is_authorized_for_prefetched_resource(context)
+
+            if self.operation == self.OPERATIONS.AND:
+                if not ok:
+                    return False
+            elif self.operation == self.OPERATIONS.OR:
+                if ok:
+                    return True
+            else:
+                raise ValueError("Unexpected Condition operation")
+
+        return self.operation == self.OPERATIONS.AND
 
     def is_authorized_for_unsaved_resource(self, context: Context) -> bool:
         if not self.conditions:
@@ -167,6 +189,22 @@ class HasRootMembership(BaseOwnerCondition):
 
         self.is_outside_collaborator = is_outside_collaborator
 
+    def get_memberships_q(self, context: Context) -> Q:
+        owner = get_object_relation(context.resource, self.relation)
+
+        q = (
+            Q(user_group=owner)
+            if self.relation_is_user_group
+            else Q(user_group__owner=owner)
+        )
+
+        q &= Q(user=context.actor)
+
+        if self.is_outside_collaborator is not None:
+            q &= Q(is_outside_collaborator=self.is_outside_collaborator)
+
+        return q
+
     def get_resources_q(self, _: Context) -> Q:
         user_groups_relation = (
             "owned_user_groups__" if not self.relation_is_user_group else ""
@@ -184,23 +222,47 @@ class HasRootMembership(BaseOwnerCondition):
 
         return Q(**query)
 
-    def is_authorized_for_unsaved_resource(self, context: Context) -> bool:
-        resource = context.resource
-
+    def _get_owner(self, resource):
         try:
-            owner = get_object_relation(resource, self.relation)
+            return get_object_relation(resource, self.relation)
         except ObjectDoesNotExist:
-            return False
+            return None
         except AttributeError as exception:
             if str(exception).startswith("'NoneType' object has no attribute"):
-                return False
+                return None
 
-            raise
+            raise  # TODO: Decide if reraise is good here
         except ValueError as exception:
-            if str(exception).endswith("before this many-to-many relationship can be used."):
-                return False
+            if str(exception).endswith(
+                "before this many-to-many relationship can be used."
+            ):
+                return None
 
             raise
+
+    def is_authorized_for_prefetched_resource(self, context: Context) -> bool:
+        resource = context.resource
+        owner = self._get_owner(resource)
+
+        if not owner:
+            return False
+
+        if not self.relation_is_user_group:
+            owner = owner.owned_user_groups.get(kind="root")
+
+        if isinstance(owner, UserGroup):
+            if not owner.kind == "root":
+                return False
+
+        for membership in context.memberships:
+            if membership.user_group == owner:
+                return True
+
+        return False
+
+    def is_authorized_for_unsaved_resource(self, context: Context) -> bool:
+        resource = context.resource
+        owner = self._get_owner(resource)
 
         if not owner:
             return False
@@ -241,6 +303,12 @@ class HasSameResourcePerms(Condition):
                 for perm in self.perms
             ],
             connector=Q.OR,
+        )
+
+    def is_authorized_for_prefetched_resource(self, context: Context) -> bool:
+        return all(
+            self.scheme.is_authorized_for_prefetched_resource(context.subcontext(perm))
+            for perm in self.perms
         )
 
     def is_authorized_for_unsaved_resource(self, context: Context) -> bool:
@@ -287,7 +355,9 @@ class HasRelatedResourcePerms(Condition):
             # TODO: only catch this when the relation is generic, because most of the times the ValueError exc is valid
             #  and should raise
             model = self.perms[0].auth_scheme.model
-            self.related_scheme = self.scheme.auth_solver.get_auth_scheme_for_model(model)
+            self.related_scheme = self.scheme.auth_solver.get_auth_scheme_for_model(
+                model
+            )
 
         # TODO: check the relationship all the way, not just the first field
         model = self.scheme.model
@@ -296,7 +366,9 @@ class HasRelatedResourcePerms(Condition):
         try:
             self.field = model._meta.get_field(field_name)
         except FieldDoesNotExist:
-            raise AttributeError(f"{field_name} was specified in {self.__class__} 'owner_relation', but doesn't exist on {model}")
+            raise AttributeError(
+                f"{field_name} was specified in {self.__class__} 'owner_relation', but doesn't exist on {model}"
+            )
 
     def get_resources_q(self, context: Context) -> Optional[Q]:
         qs = [
@@ -338,6 +410,19 @@ class HasRelatedResourcePerms(Condition):
             qs,
         )
 
+    def is_authorized_for_prefetched_resource(self, context: Context) -> bool:
+        resource = get_object_relation(context.resource, self.relation)
+
+        if not resource:
+            return False
+
+        return all(
+            self.related_scheme.is_authorized_for_prefetched_resource(
+                context.subcontext(perm, resource)
+            )
+            for perm in self.perms
+        )
+
     def is_authorized_for_unsaved_resource(self, context: Context) -> bool:
         resource = get_object_relation(context.resource, self.unsaved_object_relation)
 
@@ -353,7 +438,9 @@ class HasRelatedResourcePerms(Condition):
 
         # TODO: filter(pk=context.resource.pk). should be enforced by the solver; remove from here when implemented
         return all(
-            solver.get_authorized_on_resources_queryset(context.subcontext(perm, resource))
+            solver.get_authorized_on_resources_queryset(
+                context.subcontext(perm, resource)
+            )
             .filter(pk=resource.pk)
             .exists()
             for perm in self.perms
@@ -377,6 +464,7 @@ class HasUnrelatedResourcePerms(Condition):
     def get_resources_q(self, context: Context) -> Optional[Q]:
         solver = self.scheme.auth_solver
 
+        # TODO: Optimize below into a single queryset that uses filter(pk=self.resource.pk).exists()
         if all(
             self.resource
             in solver.get_authorized_on_resources_queryset(
@@ -409,6 +497,18 @@ class HasUnrelatedResourcePerms(Condition):
             qs,
         )
 
+    def is_authorized_for_prefetched_resource(self, context: Context) -> bool:
+        related_scheme = self.scheme.auth_solver.get_auth_scheme_for_model(
+            self.resource.__class__
+        )
+
+        return all(
+            related_scheme.is_authorized_for_prefetched_resource(
+                context.subcontext(perm, self.resource)
+            )
+            for perm in self.perms
+        )
+
     def is_authorized_for_unsaved_resource(self, context: Context) -> bool:
         # TODO: Implement
         return self.get_resources_q(context) == Q()
@@ -428,6 +528,9 @@ class QCondition(Condition):
 
     def get_resources_q(self, _: Context) -> Q:
         return self.q
+
+    def is_authorized_for_prefetched_resource(self, context: Context) -> bool:
+        return verify_resource_by_q(context.resource, self.q)
 
     def is_authorized_for_unsaved_resource(self, context: Context) -> bool:
         if self.authorize_unsaved_resource_func:

@@ -17,7 +17,7 @@ from django.contrib.auth.models import AbstractUser
 from django.db.models import Model
 from typing import Optional, Union
 
-from django_woah.models import AssignedPerm
+from django_woah.models import AssignedPerm, Membership
 from .enum import PermEnum
 
 
@@ -29,6 +29,7 @@ class Context:
     extra: dict = field(default_factory=dict)
 
     _assigned_perms: Optional[list[AssignedPerm]] = None
+    _memberships: Optional[list[Membership]] = None
     _depth: int = 0
     _root: Optional[Union["Context", "CombinedContext"]] = None
 
@@ -54,11 +55,23 @@ class Context:
     def assigned_perms(self, value):
         self._assigned_perms = value
 
+    @property
+    def memberships(self):
+        if self._memberships is None and self._root:
+            return self._root._memberships
+
+        return self._memberships
+
+    @memberships.setter
+    def memberships(self, value):
+        self._memberships = value
+
 
 @dataclass
 class CombinedContext:
     contexts: list[Context] = field(default_factory=list)
     assigned_perms: Optional[list[AssignedPerm]] = None
+    memberships: Optional[list[Membership]] = None
 
     def __post_init__(self):
         self.validate()

@@ -15,10 +15,11 @@
 from inspect import isclass
 from typing import Optional
 
+from django.contrib.auth import get_user_model
 from django.db.models import Q, Model, Manager, Subquery
 
-from django_woah.models import AssignedPerm
-from django_woah.utils.q import merge_qs, optimize_q
+from django_woah.models import AssignedPerm, Membership
+from django_woah.utils.q import merge_qs, optimize_q, pop_parts_of_q
 from .context import Context, CombinedContext
 from .enum import PermEnum
 from .scheme import ModelAuthorizationScheme
@@ -27,7 +28,9 @@ from .scheme import ModelAuthorizationScheme
 class AuthorizationSolver:
     def __init__(
         self,
-        authorization_schemes: list[ModelAuthorizationScheme | type[ModelAuthorizationScheme]],
+        authorization_schemes: list[
+            ModelAuthorizationScheme | type[ModelAuthorizationScheme]
+        ],
         clean_perms=True,
     ):
         self.authorization_schemes: list[ModelAuthorizationScheme] = []
@@ -45,7 +48,9 @@ class AuthorizationSolver:
             for scheme in self.authorization_schemes:
                 for perm in scheme.get_scheme_perms(exclude_borrowed=True):
                     if perm.value in perms:
-                        raise ValueError(f"Found {perm.value} in both {perm.auth_scheme} and {perms[perm.value].auth_scheme}")
+                        raise ValueError(
+                            f"Found {perm.value} in both {perm.auth_scheme} and {perms[perm.value].auth_scheme}"
+                        )
 
                     perms[perm.value] = perm
 
@@ -67,6 +72,13 @@ class AuthorizationSolver:
         _, scheme = self.clean_perm(context.perm)
 
         q = scheme.get_assigned_perms_q(context)
+
+        return q
+
+    def get_memberships_q(self, context: Context) -> Optional[Q]:
+        _, scheme = self.clean_perm(context.perm)
+
+        q = scheme.get_memberships_q(context)
 
         return q
 
@@ -96,17 +108,84 @@ class AuthorizationSolver:
         resource=None,
         prefetch_assigned_perms=True,
         extra: Optional[dict] = None,
+        **kwargs,
     ) -> Context:
-        if not isinstance(perm, PermEnum):
+        if isinstance(perm, PermEnum):
             perm, _ = self.clean_perm(perm)
 
         if extra is None:
             extra = {}
 
-        context = Context(actor=actor, perm=perm, resource=resource, extra=extra)
+        context = Context(
+            actor=actor, perm=perm, resource=resource, extra=extra, **kwargs
+        )
 
-        if prefetch_assigned_perms:
+        if prefetch_assigned_perms and "assigned_perms" not in kwargs:
             context.assigned_perms = self.get_assigned_perms_queryset(context)
+
+        return context
+
+    def get_context_no_actor(
+        self,
+        perm: str | PermEnum,
+        resource=None,
+        prefetch_assigned_perms=True,
+        prefetch_memberships=True,
+        extra: Optional[dict] = None,
+        **kwargs,
+    ) -> Context:
+        if isinstance(perm, PermEnum):
+            perm, _ = self.clean_perm(perm)
+
+        if extra is None:
+            extra = {}
+
+        # Use a Fake actor to get assigned_perms_q and memberships
+        class FakePK(int):
+            def is_fake(self):
+                return True
+
+        context = Context(
+            actor=get_user_model()(pk=FakePK(-1)),
+            perm=perm,
+            resource=resource,
+            extra=extra,
+            **kwargs,
+        )
+
+        # Strip the Fake actor from the assigned perms Q to fetch all the potentially needed ones
+        assigned_perms_q = pop_parts_of_q(
+            self.get_assigned_perms_q(context),
+            matcher=lambda key, *values: key == "user_group__memberships__user"
+            and values[0] == context.actor,
+        )
+
+        # TODO: See how to extract this into a separate method, maybe the existing get_assigned_perms_queryset
+        if prefetch_assigned_perms and "assigned_perms" not in kwargs:
+            context.assigned_perms = AssignedPerm.objects.filter(assigned_perms_q)
+
+        # TODO: See how to extract this into a separate method
+        if prefetch_memberships and "memberships" not in kwargs:
+            memberships_q = Q(
+                user_group__in=[
+                    assigned_perm.user_group_id
+                    for assigned_perm in context.assigned_perms
+                ]
+            )
+
+            if (additional_q := self.get_memberships_q(context)) is not None:
+                # Strip the fake actor from the memberships Q to fetch all the potentially needed ones
+                additional_q = pop_parts_of_q(
+                    additional_q,
+                    matcher=lambda key, *values: key == "user"
+                    and values[0] == context.actor,
+                )
+
+                memberships_q |= additional_q
+
+            context.memberships = Membership.objects.filter(memberships_q)
+
+        context.actor = None
 
         return context
 
@@ -132,12 +211,84 @@ class AuthorizationSolver:
 
         return model
 
+    def get_authorized_actors_q(self, context: Context) -> Optional[Q]:
+        if context.actor is not None:
+            raise ValueError("Must not specify context actor")
+
+        if not context.resource:
+            raise ValueError("Must specify context resource")
+
+        if context.assigned_perms is None:
+            raise ValueError("Must specify context assigned_perms")
+
+        if context.memberships is None:
+            raise ValueError("Must specify context memberships")
+
+        model = self.get_model(context.resource)
+        scheme = self.get_auth_scheme_for_model(model)
+
+        assigned_perms_by_user_group_id = {}
+
+        for assigned_perm in context.assigned_perms:
+            if assigned_perm.user_group_id not in assigned_perms_by_user_group_id:
+                assigned_perms_by_user_group_id[assigned_perm.user_group_id] = [
+                    assigned_perm
+                ]
+            else:
+                assigned_perms_by_user_group_id[assigned_perm.user_group_id].append(
+                    assigned_perm
+                )
+
+        actors_context_data = {}
+
+        for membership in context.memberships:
+            actor_id = membership.user_id
+
+            if not actors_context_data.get(actor_id):
+                actors_context_data[actor_id] = {
+                    "memberships": [membership],
+                    "assigned_perms": assigned_perms_by_user_group_id.get(
+                        membership.user_group_id, []
+                    ),
+                }
+            else:
+                actors_context_data[actor_id]["memberships"].append(membership)
+                actors_context_data[actor_id]["assigned_perms"] += (
+                    assigned_perms_by_user_group_id.get(membership.user_group_id, [])
+                )
+
+        actor_class = get_user_model()
+        authorized_actors_ids = []
+
+        for actor_id, context_data in actors_context_data.items():
+            subcontext = context.subcontext()
+            subcontext.actor = actor_class(id=actor_id)
+            subcontext.assigned_perms = context_data["assigned_perms"]
+            subcontext.memberships = context_data["memberships"]
+
+            if scheme.is_authorized_for_prefetched_resource(subcontext):
+                authorized_actors_ids.append(actor_id)
+
+        if not authorized_actors_ids:
+            return None
+
+        return Q(id__in=authorized_actors_ids)
+
+    def get_authorized_actors_queryset(self, context: Context):
+        actor_class = get_user_model()
+
+        q = self.get_authorized_actors_q(context)
+        if q is None:
+            return actor_class.objects.none()
+
+        return actor_class.objects.filter(q)
+
     def get_authorized_on_resources_q(self, context: Context) -> Optional[Q]:
         if not context.resource:
             raise ValueError("Must specify context resource")
 
         if context.assigned_perms is None:
-            raise ValueError("Missing context assigned_perms")
+            raise ValueError("Must specify context assigned_perms")
 
         model = self.get_model(context.resource)
         scheme = self.get_auth_scheme_for_model(model)
@@ -164,7 +315,9 @@ class AuthorizationSolver:
 
         model = self.get_model(contexts[0].resource)
 
-        q = merge_qs([self.get_authorized_on_resources_q(context) for context in contexts])
+        q = merge_qs(
+            [self.get_authorized_on_resources_q(context) for context in contexts]
+        )
 
         if q is None:
             return model.objects.none()
@@ -183,9 +336,28 @@ class AuthorizationSolver:
 
         return queryset
 
+    def is_authorized_for_prefetched_resource(
+        self, context: Optional[Context] = None, **kwargs
+    ) -> bool:
+        if not context:
+            context = self.get_context(**kwargs)
+
+        if not context.resource:
+            raise ValueError("Must specify resource")
+
+        if not isinstance(context.resource, Model):
+            raise ValueError(
+                f"Expected resource to be a Model instance, but got: {context.resource}"
+            )
+
+        model = context.resource.__class__
+        scheme = self.get_auth_scheme_for_model(model)
+
+        return scheme.is_authorized_for_prefetched_resource(context)
+
     def is_authorized_for_unsaved_resource(
         self, context: Optional[Context | CombinedContext] = None, **kwargs
-    ):
+    ) -> bool:
         if not context:
             context = self.get_context(**kwargs)
 

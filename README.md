@@ -24,7 +24,7 @@ INSTALLED_APPS = [
 - It offers some built-in support for Django REST Framework (DRF).
 - Authorization Schemes are based on Python classes. They don't strictly follow pre-existing authorization patterns, such as ABAC or (P)RBAC, but they could be used to achieve similar functionality.
 
-For what it can not do, check the [shortcomings](#shortcomings).
+For what it can not do, check the [shortcomings and limitations](#shortcomings-and-limitations).
 
 
 ## How it looks
@@ -183,29 +183,33 @@ To see more code in action you can check the [examples](https://github.com/press
 
 ## Performance
 
-- Although proper benchmarks haven't been conducted, performance should be decent. Most authorization checks can be done with 2 queries: one to fetch AssignedPerms, and one to filter the resources on which the actor is authorized to perform.
-
+- Although proper benchmarks haven't been conducted, performance should be decent:
+  - Most resources authorization checks can be done with 2 queries: one to fetch AssignedPerms, and one to filter the resources on which the actor is authorized to perform, assuming the actor is prefetched and doesn't count.
+  - Fetching what actors are authorized on a resource require at least 3 queries: one to fetch AssignedPerms, Memberships and finally the Actors.
 
 ## Current status and future plans
 
-- The library has been used in production at Presslabs since ~2024.04 (v0.1.3), with most, if not all of it's functionality tested.
+- The library has been used in production at Presslabs since ~2024.04 (v0.1.3), with most, if not all, of its functionality tested in production and hundreds of external CI tests.
 - This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html). That means until version 1.0, breaking changes are to be expected from one version to another, although they will be documented in the [changelog](CHANGELOG.MD).
 - There is a good chance for pre-1.0 versions to be maintained for a while, in terms of compatibility with newer Django and Python versions, as well as critical bugfixes. You might have to provide a pull request yourself though, but we'll, at the least, review it and hopefully ship it in a maintenance release.
-- The abstractions around how Conditions are composed and relate to AuthorizationSchemes/Solver could've been more inspired (see [Shortcomings and Limitations](#shortcomings-and-limitations)). Therefore, a major rework could happen before the 1.0 release, but chances are it will take a while longer to materialize, as the current API is *usable* enough.
+- The abstractions around how Conditions are composed and relate to AuthorizationSchemes/Solver could've been more inspired (see [Shortcomings and Limitations](#shortcomings-and-limitations)). Therefore, a major rework could happen before the 1.0 release, but chances are it might only materialize after that release, as the current API is *usable* enough.
+- Some Docs would be nice.
 
 
 ## Shortcomings and Limitations
 
-- The models and logic currently work with a single owner type relation, pointing to the Django `AUTH_USER_MODEL`. This implies that your Organizations must share the same model with your Users (which we believe simplifies things for most cases). It should be possible to work around this limitation, but out of the box everything is set up to work this way.
-- It's hard (and not performant) to interrogate who all the users with privileges for a resource are.
-- It's not possible to define and store new permissions/roles in the DB.
-- It's cumbersome to verify if a subset of *Conditions* is being met. And when enforcing authorization, it's kind of impossible to reveal the conditions that have not been met.
+### Important ones
+- The models and logic currently work with a single owner type relation, pointing to the Django `AUTH_USER_MODEL`. This implies that your Organizations must share the same model with your Users (which we believe simplifies things for most cases). `Account` could be your model name to represent both Users and Organizations. While it should be possible to work around this assumption, everything is set up to work this way out of the box.
+- It's not trivial to define and store new permissions/roles in the DB, at least there's no out of the box support for it.
+
+### Minor ones
 - Verifying authorization for already prefetched resources, in cases where conditions can be satisfied without the need to fetch AssignedPerms, or the AssignedPerms have been prefetched as well, could be more performant. The best way of doing it now is filtering which of them the actor is authorized for, as if they weren't prefetched to begin with.
 - For some cases, prefetching AssignedPerms could be avoided, and the whole authorization interrogation could be done with a single query... but not with how the abstraction is currently built. That single query would consist of more DB joins, so it's hard to tell if a potential performance increase is left on the table or not, without actual benchmarks.
+- While this library handles most authorization rules you can practically expect to use, it probably won't handle every imaginable or weird case.
+- It's cumbersome to verify if a subset of *Conditions* is being met. And when enforcing authorization, it's kind of impossible to reveal the conditions that have not been met.
+- There is (currently) no planned support for the Django Admin.
 - Memberships could be made more optional in the whole design, but it's not clear if that's of any importance right now.
-- Some "meta" indirect privileges are hard (or even impossible) to implement, especially in a performant manner. For example: giving privileges that other users possess, based on a relation between the actor and the respective users, if say they are part of the same UserGroups. 
-- This library is mostly intended to be used in conjunction with APIs. There is (currently) no built-in support for the Django Admin, and no plan to add one unless there is enough interest for it and somebody contributes it. 
-- Authorization Schemes are based on Python classes, and not on some serializable configuration system, but this is more of a preference thing.
+- Authorization Schemes are based on Python classes, and their serialization is of no priority. 
 
 If these are dealbreakers for you or you are simply looking for something else, check the [alternatives](#alternatives).
 

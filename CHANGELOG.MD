@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 ### Added
+- Added a `get_memberships_q` `Solver/AuthorizationScheme/IndirectPerm/Condition` method, similar to the `get_assigned_perms_q` one. 
+  - It is currently required for fetching all authorized actors, but it is not used when fetching the authorized on resources, so it's optionality is to be decided.
+- Added an `is_authorized_for_prefetched_resource` method similar to the `is_authorized_for_unsaved_resource`.
+  - It is currently used when fetching all authorized actors for a resource + perm combination.
+  - The current plan is to later merge this into a single `is_authorized_for_resource` method.
+- Added an experimental method (AuthorizationSolver.get_actors_queryset(context)) for querying what users have a certain Perm on a certain resource.
 - Added a couple more utils for handling Qs, but as always these are not really meant to be public and may be changed or removed at any time.
 
 ### Changed

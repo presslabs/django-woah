@@ -12,15 +12,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from typing import TYPE_CHECKING
-
-from django.contrib.contenttypes.models import ContentType
-from django.db.models import Q, Model
 from functools import reduce
 from typing import Optional
+from typing import TYPE_CHECKING
+
+from django.contrib.auth import get_user_model
+from django.contrib.contenttypes.models import ContentType
+from django.db.models import Q, Model
 
 from django_woah.models import AssignedPerm
-from django_woah.utils.q import merge_qs
+from django_woah.utils.q import merge_qs, prefix_q_with_relation, pop_parts_of_q
+
 if TYPE_CHECKING:
     from .solver import AuthorizationSolver
 
@@ -125,18 +127,18 @@ class ModelAuthorizationScheme(AuthorizationScheme):
             ]
 
             if (pk_field_name := relation_model._meta.pk.name) == "id":
-                relation = (
+                owner_based_relation = (
                     "id" if self.owner_relation == "*" else f"{self.owner_relation}_id"
                 )
             else:
-                relation = (
+                owner_based_relation = (
                     pk_field_name
                     if self.owner_relation == "*"
                     else f"{self.owner_relation}__{pk_field_name}"
                 )
 
             owner_based_q = (
-                Q(**{f"{relation}__in": owner_based_matches})
+                Q(**{f"{owner_based_relation}__in": owner_based_matches})
                 if owner_based_matches
                 else None
             )
@@ -156,33 +158,51 @@ class ModelAuthorizationScheme(AuthorizationScheme):
 
         return q or owner_based_q
 
-    def get_resources_q(self, context: Context) -> Optional[Q]:
-        if context.assigned_perms is None:
-            context.assigned_perms = AssignedPerm.objects.filter(
-                self.get_assigned_perms_q(context)
-            )
-
-        q = self.get_resources_q_from_directly_assigned_perms(context)
+    def get_resources_q_from_indirect_perms(self, context: Context) -> Optional[Q]:
+        q = None
 
         for indirect_perms in self.get_scheme_indirect_perms(context):
             if context.perm in indirect_perms.can_receive_perms():
                 if (
                     indirect_perms_q := indirect_perms.get_resources_q(context)
                 ) is not None:
-                    if q:
-                        q |= indirect_perms_q
-                    else:
+                    if not q:
                         q = indirect_perms_q
+                    else:
+                        q |= indirect_perms_q
 
-        if q is None:
-            return None
+        return q
 
-        for condition in self.get_scheme_implicit_conditions(context) or []:
-            implicit_condition_q = condition.get_resources_q(context)
-            if implicit_condition_q is None:
-                return None
+    def get_resources_implicit_conditions_q(self, context: Context) -> Optional[Q]:
+        """
+        The resulting Q is meant to be AND-ed with other Qs, and not to be used on it's own.
+        A `None` result means the Q is guaranteed to be logically False.
+        """
 
-            q &= implicit_condition_q
+        implicit_conditions_qs = [
+            condition.get_resources_q(context)
+            for condition in self.get_scheme_implicit_conditions(context) or []
+        ]
+        if not implicit_conditions_qs:
+            return Q()
+
+        return merge_qs(implicit_conditions_qs)
+
+    def get_resources_q(self, context: Context) -> Optional[Q]:
+        if context.assigned_perms is None:
+            context.assigned_perms = AssignedPerm.objects.filter(
+                self.get_assigned_perms_q(context)
+            )
+
+        q = merge_qs(
+            [
+                self.get_resources_q_from_directly_assigned_perms(context),
+                self.get_resources_q_from_indirect_perms(context),
+            ],
+            connector=Q.OR,
+        )
+
+        q = merge_qs([q, self.get_resources_implicit_conditions_q(context)])
 
         # TODO check if this restriction is ok; also handle list of specific resources
         if isinstance(context.resource, Model):
@@ -195,6 +215,47 @@ class ModelAuthorizationScheme(AuthorizationScheme):
                 q &= Q(pk=context.resource.pk)
 
         return q
+
+    def is_directly_authorized_for_prefetched_resource(self, context: Context) -> bool:
+        # It is assumed that context.assigned_perms have been prefetched with scheme.get_assigned_perms_q()
+        # or such that the User has membership to the UserGroups and what other implicit conditions the scheme
+        # may specify.
+
+        for assigned_perm in context.assigned_perms:
+            if (
+                assigned_perm.perm == context.perm
+                # TODO: should allow assigned_perm.content_type=None too?
+                and assigned_perm.content_type.model_class == context.resource.__class__
+                and (
+                    assigned_perm.object_id is None
+                    or assigned_perm.object_id == context.resource.pk
+                )
+            ):
+                return True
+
+        return False
+
+    def is_authorized_for_prefetched_resource(self, context: Context) -> bool:
+        if context.assigned_perms is None:
+            context.assigned_perms = AssignedPerm.objects.filter(
+                self.get_assigned_perms_q(context)
+            )
+
+        for condition in self.get_scheme_implicit_conditions(context) or []:
+            if not condition.is_authorized_for_prefetched_resource(context):
+                return False
+
+        if self.is_directly_authorized_for_prefetched_resource(context):
+            return True
+
+        for indirect_perm in self.get_scheme_indirect_perms(context):
+            if context.perm not in indirect_perm.can_receive_perms():
+                continue
+
+            if indirect_perm.is_authorized_for_prefetched_resource(context):
+                return True
+
+        return False
 
     def is_authorized_for_unsaved_resource(self, context: Context) -> bool:
         for condition in self.get_scheme_implicit_conditions(context) or []:
@@ -273,13 +334,40 @@ class ModelAuthorizationScheme(AuthorizationScheme):
 
         return reduce(lambda q1, q2: q1 | q2, qs)
 
+    def get_memberships_q(self, context: Context) -> Optional[Q]:
+        q = None
+        qs = []
+
+        for indirect_perm in self.get_scheme_indirect_perms(context):
+            if context.perm not in indirect_perm.can_receive_perms():
+                continue
+
+            if (
+                indirect_perm_q := indirect_perm.get_memberships_q(context)
+            ) is not None:
+                qs.append(indirect_perm_q)
+
+        if qs:
+            q = reduce(lambda q1, q2: q1 | q2, qs)
+
+        for condition in self.get_scheme_implicit_conditions(context) or []:
+            if (condition_q := condition.get_memberships_q(context)) is not None:
+                if q is None:
+                    q = condition_q
+                else:
+                    q |= condition_q
+
+        return q
+
     def get_auth_scheme_by_relation(self, relation) -> "ModelAuthorizationScheme":
         return get_relation_scheme(self, relation)
 
     def get_model_for_relation(self, relation) -> type[Model]:
         return self.get_auth_scheme_by_relation(relation).model
 
-    def get_auth_scheme_for_direct_relation(self, relation) -> "ModelAuthorizationScheme":
+    def get_auth_scheme_for_direct_relation(
+        self, relation
+    ) -> "ModelAuthorizationScheme":
         # TODO: this should raise if there are 2 or more auth classes for the same model
         result = self.auth_solver.get_auth_scheme_for_model(
             self.get_model_for_direct_relation(relation)

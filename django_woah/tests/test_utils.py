@@ -6,9 +6,7 @@ from django_woah.utils.q import optimize_q
 def test_optimize_q_1level_simple():
     assert optimize_q(
         Q(Q(a=2), Q(b=3), Q(a=2)),
-    ) == Q(
-        a=2
-    ) & Q(b=3)
+    ) == Q(a=2) & Q(b=3)
 
 
 def test_optimize_q_1level_simple_case2():
@@ -33,17 +31,13 @@ def test_optimize_q_2level_simple():
         )
         & Q(b=3)
         & Q(a=2)
-    ) == Q(
-        a=2
-    ) & Q(b=3)
+    ) == Q(a=2) & Q(b=3)
 
 
 def test_optimize_q_1level_extract_common():
     assert optimize_q(
         (Q(a=2) & Q(b=2)) | (Q(a=2) & Q(c=3)),
-    ) == Q(
-        a=2
-    ) & (Q(b=2) | Q(c=3))
+    ) == Q(a=2) & (Q(b=2) | Q(c=3))
 
 
 def test_optimize_q_1level_extract_common_and_prune_extras():
@@ -55,9 +49,7 @@ def test_optimize_q_1level_extract_common_and_prune_extras():
 def test_optimize_q_1level_extract_common_case2():
     assert optimize_q(
         (Q(a=2) & Q(b=2, a=2)) | (Q(a=2) & Q(c=3)) | Q(a=2, d=4),
-    ) == Q(
-        a=2
-    ) & (Q(b=2) | Q(c=3) | Q(d=4))
+    ) == Q(a=2) & (Q(b=2) | Q(c=3) | Q(d=4))
 
 
 def test_optimize_q_1level_prune_extras():

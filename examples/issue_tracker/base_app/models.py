@@ -15,7 +15,32 @@
 import uuid6
 
 from django.contrib.auth.base_user import AbstractBaseUser
+from django.core.mail import send_mail
 from django.db import models
+
+from django_woah.authorization import Context, ModelAuthorizationScheme
+
+
+class AuthorizationMixin:
+    @property
+    def authorization_scheme(self) -> ModelAuthorizationScheme:
+        from .authorization import AuthorizationSolver
+
+        return AuthorizationSolver.get_auth_scheme_for_model(self.__class__)
+
+    def get_authorized_accounts(self, perm):
+        from .authorization import AuthorizationSolver
+
+        authorization_scheme = self.authorization_scheme
+
+        if perm not in authorization_scheme.get_scheme_perms():
+            raise ValueError(f"{perm} is not part of {authorization_scheme}'s perms.")
+
+        return AuthorizationSolver.get_authorized_actors_queryset(
+            AuthorizationSolver.get_context_no_actor(
+                resource=self, perm=perm, prefetch_memberships=True
+            )
+        )
 
 
 class Account(AbstractBaseUser):
@@ -64,7 +89,7 @@ class IssueState(models.TextChoices):
     CLOSED = "closed", "Closed"
 
 
-class Issue(models.Model):
+class Issue(models.Model, AuthorizationMixin):
     id = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
 
     owner = models.ForeignKey(
@@ -86,6 +111,22 @@ class Issue(models.Model):
     title = models.CharField(max_length=512)
     content = models.TextField()
     state = models.CharField(max_length=16, default=IssueState.OPEN)
+
+    def notify_everyone_with_access_about_something(self):
+        accounts_to_notify = self.get_authorized_accounts(
+            self.authorization_scheme.Perms.ISSUE_VIEW
+        )
+
+        return send_mail(
+            subject="Your attention is needed!!!!!",
+            message=f"Hi, this is an urgent notification about issue {self.title} something something.",
+            recipient_list=[
+                account.email
+                for account in accounts_to_notify
+                if not account.is_organization
+            ],
+            from_email="<>",
+        )
 
 
 class HistoricIssueVersion(models.Model):
