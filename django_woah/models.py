@@ -18,7 +18,7 @@ import uuid6
 from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.db import models, transaction
 from django.db.models import Q, UniqueConstraint
 
@@ -133,6 +133,15 @@ class AssignedPermManager(models.Manager):
             kwargs["object_id"] = resource.pk
 
         return super().get(*args, **kwargs)
+
+    def create(self, defaults=None, **kwargs):
+        if resource := kwargs.pop("resource", None):
+            kwargs["content_type"] = ContentType.objects.get_for_model(
+                resource.__class__
+            )
+            kwargs["object_id"] = resource.pk
+
+        return super().create(**kwargs)
 
     def get_or_create(self, defaults=None, **kwargs):
         if defaults and (resource := defaults.pop("resource", None)):
@@ -351,7 +360,33 @@ def add_user_to_user_group(
     return resulted_membership, resulted_user_group
 
 
-def assign_perm(perm, to_user, on_account) -> AssignedPerm:
+def create_user_membership_to_account(
+    user, account, is_outside_collaborator=False
+) -> tuple[Membership, UserGroup]:
+    user_group = get_root_user_group(account)
+
+    return add_user_to_user_group(user, user_group, is_outside_collaborator)
+
+
+def assign_perm(perm, to_user, on_account, for_resource=None) -> AssignedPerm:
+    try:
+        user_group = get_single_user_user_group(
+            related_to_user=to_user, owned_by_account=on_account
+        )
+    except ObjectDoesNotExist:
+        error_message = f"User {to_user} does not have a membership on {on_account}."
+        solution = f"To grant the user membership, you may call `create_user_membership_to_account({to_user}, {on_account})`."
+
+        print(f"{error_message}\n{solution}")
+        raise ValueError(error_message)
+
+    kwargs = {
+        "user_group": user_group,
+        "perm": perm,
+    }
+    if for_resource:
+        kwargs["resource"] = for_resource
+
     return AssignedPerm.objects.create(
         user_group=get_single_user_user_group(
             related_to_user=to_user, owned_by_account=on_account

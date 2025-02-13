@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Change mentions of "authorized_resources" to "authorized_on_resources". So `get_authorized_resources_q` and `get_authorized_resources_queryset` methods become `get_authorized_on_resources_q` and `get_authorized_on_resources_queryset`. **Breaking Change**
+- Improved `assign_perm` helper to optionally receive a `for_resource` parameter.
+- Handle situation when trying to `assign_perm` to a user, on an account it doesn't have membership to.
+- Allow `AssignedPerm.objects.create()` to receive a `resource` parameter.
 
 ### Fixed
 - Handle case of related object being `None` in `HasRelatedResourcePerms.is_authorized_for_unsaved_resource`
