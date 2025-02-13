@@ -132,9 +132,9 @@ class AuthorizationSolver:
 
         return model
 
-    def get_authorized_resources_q(self, context: Context) -> Optional[Q]:
+    def get_authorized_on_resources_q(self, context: Context) -> Optional[Q]:
         if not context.resource:
-            raise ValueError("Must specify resource")
+            raise ValueError("Must specify context resource")
 
         if context.assigned_perms is None:
             raise ValueError("Missing context assigned_perms")
@@ -148,7 +148,7 @@ class AuthorizationSolver:
 
         return optimize_q(resources_q, allow_bools=False)
 
-    def get_authorized_resources_queryset(
+    def get_authorized_on_resources_queryset(
         self,
         context: Optional[Context | CombinedContext] = None,
         base_queryset=None,
@@ -164,7 +164,7 @@ class AuthorizationSolver:
 
         model = self.get_model(contexts[0].resource)
 
-        q = merge_qs([self.get_authorized_resources_q(context) for context in contexts])
+        q = merge_qs([self.get_authorized_on_resources_q(context) for context in contexts])
 
         if q is None:
             return model.objects.none()

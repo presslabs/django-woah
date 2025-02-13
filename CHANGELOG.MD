@@ -6,8 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+### Changed
+- Change mentions of "authorized_resources" to "authorized_on_resources". So `get_authorized_resources_q` and `get_authorized_resources_queryset` methods become `get_authorized_on_resources_q` and `get_authorized_on_resources_queryset`. **Breaking Change**
+
+### Fixed
 - Handle case of related object being `None` in `HasRelatedResourcePerms.is_authorized_for_unsaved_resource`
-- Preserve explicit and model defined ordering when passing a `base_queryset` to `AuthorizationSolver.get_authorized_resources_queryset`
+- Preserve explicit and model defined ordering when passing a `base_queryset` to `AuthorizationSolver.get_authorized_on_resources_queryset`
 
 
 ## [0.2] - 2024-11-19
@@ -34,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Renamed `get_or_create_root_user_group_for_account` helper func to `get_or_create_root_user_group`. **Breaking Change**
 - Renamed `get_or_create_team_user_group_for_account` helper func to `get_or_create_team_user_group`. **Breaking Change**
 
-### Fixes
+### Fixed
 - Fixed a bunch of 500 errors in DRF browsable API mostly related to unsaved resources, but also DRF quirks.
 - Handled some attribute traversal errors exceptions, where it was sensible to do so.
 

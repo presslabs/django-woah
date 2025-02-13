@@ -144,4 +144,4 @@ class TransitiveFromRelationPerms(IndirectPerms):
         context.resource = self.scheme.get_auth_scheme_by_relation(self.relation).model
         context.assigned_perms = solver.get_assigned_perms_queryset(context)
 
-        return solver.get_authorized_resources_queryset(context).exists()
+        return solver.get_authorized_on_resources_queryset(context).exists()

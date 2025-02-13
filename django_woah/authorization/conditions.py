@@ -353,7 +353,7 @@ class HasRelatedResourcePerms(Condition):
 
         # TODO: filter(pk=context.resource.pk). should be enforced by the solver; remove from here when implemented
         return all(
-            solver.get_authorized_resources_queryset(context.subcontext(perm, resource))
+            solver.get_authorized_on_resources_queryset(context.subcontext(perm, resource))
             .filter(pk=resource.pk)
             .exists()
             for perm in self.perms
@@ -379,7 +379,7 @@ class HasUnrelatedResourcePerms(Condition):
 
         if all(
             self.resource
-            in solver.get_authorized_resources_queryset(
+            in solver.get_authorized_on_resources_queryset(
                 context.subcontext(perm, self.resource)
             )
             for perm in self.perms

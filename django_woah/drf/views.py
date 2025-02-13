@@ -187,7 +187,7 @@ class AuthorizationViewSetMixin:
 
         for context in self.get_authorization_context().contexts:
             qs.append(
-                self.authorization_solver.get_authorized_resources_q(context=context)
+                self.authorization_solver.get_authorized_on_resources_q(context=context)
             )
 
         q = merge_qs(qs)
@@ -216,7 +216,7 @@ class AuthorizationViewSetMixin:
         if cached_result is not uninitialized:
             return cached_result
 
-        queryset = self.authorization_solver.get_authorized_resources_queryset(
+        queryset = self.authorization_solver.get_authorized_on_resources_queryset(
             context=self.get_authorization_context(),
             base_queryset=base_queryset,
         )
@@ -388,7 +388,7 @@ class AuthorizationViewSetMixin:
             for context in combined_context.contexts:
                 context.resource = resource
 
-            return self.authorization_solver.get_authorized_resources_queryset(
+            return self.authorization_solver.get_authorized_on_resources_queryset(
                 context=combined_context,
             ).exists()
 
@@ -404,7 +404,7 @@ class AuthorizationViewSetMixin:
             return self.authorization_solver.is_authorized_for_unsaved_resource(
                 context=combined_context,
             )
-        except (AttributeError, ValueError) as exception:
+        except (AttributeError, ValueError):
             if not self.request.data:
                 # DRF has this "nice" way of testing if it should render a POST form in the default browsable API
                 serializer = self.get_serializer(data=self.request.data)
