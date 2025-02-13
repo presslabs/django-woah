@@ -41,9 +41,53 @@ def prefix_q_with_relation(q: Q, relation: str) -> Q:
         if isinstance(child, Q):
             children.append(prefix_q_with_relation(child, relation))
         elif isinstance(child, tuple):
-            children.append((f"{relation}__{child[0]}", *child[1:]))
+            prefixed_relation = (
+                f"{relation}__{child[0]}" if child[0] != "*" else relation
+            )
+
+            children.append((prefixed_relation, *child[1:]))
         else:
-            raise (ValueError("Unexpected child", child))
+            raise ValueError("Unexpected child", child)
+
+    return Q(*children, _connector=q.connector, _negated=q.negated)
+
+
+def pop_parts_of_q(q: Q, matcher) -> Q:
+    children = []
+
+    for child in q.children:
+        if isinstance(child, Q):
+            children.append(pop_parts_of_q(child, matcher))
+        elif isinstance(child, tuple):
+            if matcher(*child):
+                continue
+
+            children.append((child[0], *child[1:]))
+        else:
+            raise ValueError("Unexpected child", child)
+
+    return Q(*children, _connector=q.connector, _negated=q.negated)
+
+
+def remove_prefix_relation_from_q(q: Q, relation: str) -> Q:
+    children = []
+    prefix = f"{relation}__"
+
+    for child in q.children:
+        if isinstance(child, Q):
+            children.append(remove_prefix_relation_from_q(child, relation))
+        elif isinstance(child, tuple):
+            stripped_relation = child[0]
+
+            if stripped_relation.startswith(prefix):
+                stripped_relation = stripped_relation[len(prefix) :]
+
+            if not stripped_relation:
+                stripped_relation = "*"
+
+            children.append((stripped_relation, *child[1:]))
+        else:
+            raise ValueError("Unexpected child", child)
 
     return Q(*children, _connector=q.connector, _negated=q.negated)
 

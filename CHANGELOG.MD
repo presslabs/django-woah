@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+### Added
+- Added a couple more utils for handling Qs, but as always these are not really meant to be public and may be changed or removed at any time.
+
 ### Changed
 - Change mentions of "authorized_resources" to "authorized_on_resources". So `get_authorized_resources_q` and `get_authorized_resources_queryset` methods become `get_authorized_on_resources_q` and `get_authorized_on_resources_queryset`. **Breaking Change**
 
