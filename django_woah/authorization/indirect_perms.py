@@ -12,7 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from django.db.models import Q
+from django.db.models import Q, Model
 from typing import Optional
 
 from django_woah.utils.q import merge_qs, prefix_q_with_relation, get_object_relation
@@ -140,13 +140,37 @@ class TransitiveFromRelationPerms(IndirectPerms):
         return prefix_q_with_relation(q, self.relation)
 
     def get_assigned_perms_q(self, context: Context) -> Optional[Q]:
+        relation_resource = self.relation_scheme.model
+
+        if isinstance(context.resource, self.scheme.model):
+            concrete_relation_resource = get_object_relation(
+                context.resource, self.relation
+            )
+            if concrete_relation_resource is None:
+                return None
+
+            if isinstance(concrete_relation_resource, Model):
+                relation_resource = concrete_relation_resource
+
         return self.relation_scheme.get_assigned_perms_q(
-            context=context.subcontext(resource=self.relation_scheme.model)
+            context=context.subcontext(resource=relation_resource)
         )
 
     def get_memberships_q(self, context: Context) -> Optional[Q]:
+        relation_resource = self.relation_scheme.model
+
+        if isinstance(context.resource, self.scheme.model):
+            concrete_relation_resource = get_object_relation(
+                context.resource, self.relation
+            )
+            if concrete_relation_resource is None:
+                return None
+
+            if isinstance(concrete_relation_resource, Model):
+                relation_resource = concrete_relation_resource
+
         return self.relation_scheme.get_memberships_q(
-            context=context.subcontext(resource=self.relation_scheme.model)
+            context=context.subcontext(resource=relation_resource)
         )
 
     def can_receive_perms(self) -> list[PermEnum]:
@@ -162,12 +186,7 @@ class TransitiveFromRelationPerms(IndirectPerms):
             resource=get_object_relation(context.resource, self.relation)
         )
 
-        solver = self.scheme.auth_solver
-
-        context.resource = self.scheme.get_auth_scheme_by_relation(self.relation).model
-        context.assigned_perms = solver.get_assigned_perms_queryset(context)
-
-        return solver.is_authorized_for_prefetched_resource(context).exists()
+        return self.scheme.auth_solver.is_authorized_for_prefetched_resource(context)
 
     def is_authorized_for_unsaved_resource(self, context: Context) -> bool:
         if context.perm not in self.restrict_to_perms:
@@ -180,8 +199,6 @@ class TransitiveFromRelationPerms(IndirectPerms):
         )
 
         solver = self.scheme.auth_solver
-
-        context.resource = self.scheme.get_auth_scheme_by_relation(self.relation).model
         context.assigned_perms = solver.get_assigned_perms_queryset(context)
 
         return solver.get_authorized_on_resources_queryset(context).exists()

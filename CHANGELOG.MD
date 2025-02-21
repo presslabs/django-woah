@@ -24,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Handle case of related object being `None` in `HasRelatedResourcePerms.is_authorized_for_unsaved_resource`
 - Preserve explicit and model defined ordering when passing a `base_queryset` to `AuthorizationSolver.get_authorized_on_resources_queryset`
+- Fixed `TransitiveFromRelationPerms.is_authorized_for_unsaved_resource`
+- Improved `TransitiveFromRelationPerms.get_assigned_perms_q`
 
 
 ## [0.2] - 2024-11-19
