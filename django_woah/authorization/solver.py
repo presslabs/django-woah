@@ -325,14 +325,20 @@ class AuthorizationSolver:
         if base_queryset is None:
             base_queryset = model.objects.all()
 
-        # Copy the base_queryset, detach the ordering, and attach it to the new queryset
+        # Copy the base_queryset, detach it's ordering, and attach it to the new queryset
         order_by = base_queryset.query.order_by
-        if order_by != ():
-            base_queryset.query.order_by = None
+        extra_order_by = base_queryset.query.extra_order_by
+        default_ordering = base_queryset.query.default_ordering
+
+        base_queryset.query.clear_ordering()
 
         queryset = model.objects.filter(
             pk__in=Subquery(base_queryset.filter(q).values("pk").distinct())
-        ).order_by(*order_by)
+        )
+
+        queryset.query.order_by = order_by
+        queryset.query.extra_order_by = extra_order_by
+        queryset.query.default_ordering = default_ordering
 
         return queryset
 
