@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
+_N/A_
+
+
+## [0.3] - 2025-02-21
 ### Added
 - Added a `get_memberships_q` `Solver/AuthorizationScheme/IndirectPerm/Condition` method, similar to the `get_assigned_perms_q` one. 
   - It is currently required for fetching all authorized actors, but it is not used when fetching the authorized on resources, so it's optionality is to be decided.
@@ -18,12 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - Change mentions of "authorized_resources" to "authorized_on_resources". So `get_authorized_resources_q` and `get_authorized_resources_queryset` methods become `get_authorized_on_resources_q` and `get_authorized_on_resources_queryset`. **Breaking Change**
 - Improved `assign_perm` helper to optionally receive a `for_resource` parameter.
-- Handle situation when trying to `assign_perm` to a user, on an account it doesn't have membership to.
 - Allow `AssignedPerm.objects.create()` to receive a `resource` parameter.
 
 ### Fixed
-- Handle case of related object being `None` in `HasRelatedResourcePerms.is_authorized_for_unsaved_resource`
 - Preserve explicit and model defined ordering when passing a `base_queryset` to `AuthorizationSolver.get_authorized_on_resources_queryset`
+- Handle case of related object being `None` in `HasRelatedResourcePerms.is_authorized_for_unsaved_resource`
+- Handle case when trying to `assign_perm` to a user, on an account it doesn't have membership to.
 - Fixed `TransitiveFromRelationPerms.is_authorized_for_unsaved_resource`
 - Improved `TransitiveFromRelationPerms.get_assigned_perms_q`
 
