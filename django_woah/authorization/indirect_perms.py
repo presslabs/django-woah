@@ -186,7 +186,7 @@ class TransitiveFromRelationPerms(IndirectPerms):
             resource=get_object_relation(context.resource, self.relation)
         )
 
-        return self.scheme.auth_solver.is_authorized_for_prefetched_resource(context)
+        return self.relation_scheme.is_authorized_for_prefetched_resource(context)
 
     def is_authorized_for_unsaved_resource(self, context: Context) -> bool:
         if context.perm not in self.restrict_to_perms:
