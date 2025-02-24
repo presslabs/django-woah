@@ -224,11 +224,15 @@ class ModelAuthorizationScheme(AuthorizationScheme):
         for assigned_perm in context.assigned_perms:
             if (
                 assigned_perm.perm == context.perm
-                # TODO: should allow assigned_perm.content_type=None too?
-                and assigned_perm.content_type.model_class == context.resource.__class__
-                and (
-                    assigned_perm.object_id is None
-                    or assigned_perm.object_id == context.resource.pk
+                and (assigned_perm.content_type is None and not assigned_perm.object_id)
+                or (
+                    assigned_perm.content_type
+                    and assigned_perm.content_type.model_class
+                    == context.resource.__class__
+                    and (
+                        (not assigned_perm.object_id)
+                        or assigned_perm.object_id == context.resource.pk
+                    )
                 )
             ):
                 return True
