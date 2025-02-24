@@ -20,7 +20,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Q, Model
 
-from django_woah.models import AssignedPerm
+from django_woah.models import AssignedPerm, Membership
 from django_woah.utils.q import merge_qs, prefix_q_with_relation, pop_parts_of_q
 
 if TYPE_CHECKING:
@@ -240,6 +240,15 @@ class ModelAuthorizationScheme(AuthorizationScheme):
             context.assigned_perms = AssignedPerm.objects.filter(
                 self.get_assigned_perms_q(context)
             )
+
+        if context.memberships is None:
+            q = self.get_memberships_q(context)
+            if q is None:
+                context.memberships = Membership.objects.none()
+            else:
+                context.memberships = Membership.objects.filter(
+                    self.get_memberships_q(context)
+                )
 
         for condition in self.get_scheme_implicit_conditions(context) or []:
             if not condition.is_authorized_for_prefetched_resource(context):
