@@ -116,6 +116,21 @@ class CombinedCondition(Condition):
             qs,
         )
 
+    def get_memberships_q(self, context: Context) -> Optional[Q]:
+        qs = [
+            q
+            for condition in self.conditions
+            if (q := condition.get_memberships_q(context)) is not None
+        ]
+
+        if not qs:
+            return None
+
+        return reduce(
+            lambda q1, q2: q1 | q2,
+            qs,
+        )
+
     def is_authorized_for_prefetched_resource(self, context: Context) -> bool:
         if not self.conditions:
             return True
