@@ -6,7 +6,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## Unreleased
-_N/A_
+N/A
+
+## [0.3.1] - 2025-02-27
+### Fixed
+- Fix not calling content_type.model_class (because it's a method, not a property like the name would suggest); fixes usage of is_directly_authorized_for_prefetched_resource in some cases
+- Add missing CombinedCondition.get_memberships_q; fixes usage of is_authorized_for_prefetched_resources in some cases
+- Fix case of infinite recursion in is_authorized_for_prefetched_resources
+- Fix calling scheme.is_authorized_for_prefetched_resource directly
+- Improve scheme.is_directly_authorized_for_prefetched_resource
 
 
 ## [0.3] - 2025-02-21
