@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Unreleased
 N/A
 
+
+## [0.3.2] - 2025-02-27
+### Fixed
+- Fix object_id check in is_directly_authorized_for_prefetched_resource
+
+
 ## [0.3.1] - 2025-02-27
 ### Fixed
 - Fix not calling content_type.model_class (because it's a method, not a property like the name would suggest); fixes usage of is_directly_authorized_for_prefetched_resource in some cases
