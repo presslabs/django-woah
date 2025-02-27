@@ -217,24 +217,28 @@ class ModelAuthorizationScheme(AuthorizationScheme):
         return q
 
     def is_directly_authorized_for_prefetched_resource(self, context: Context) -> bool:
+        # TODO: improve the description for this method
         # It is assumed that context.assigned_perms have been prefetched with scheme.get_assigned_perms_q()
         # or such that the User has membership to the UserGroups and what other implicit conditions the scheme
         # may specify.
 
         for assigned_perm in context.assigned_perms:
-            if (
-                assigned_perm.perm == context.perm
-                and (assigned_perm.content_type is None and not assigned_perm.object_id)
-                or (
-                    assigned_perm.content_type
-                    and assigned_perm.content_type.model_class()
-                    == context.resource.__class__
-                    and (
-                        (not assigned_perm.object_id)
-                        or assigned_perm.object_id == context.resource.pk
-                    )
-                )
-            ):
+            if assigned_perm.perm != context.perm:
+                # Skip if the perms don't match
+                continue
+
+            if assigned_perm.content_type:
+                model = assigned_perm.content_type.model_class()
+                if model != context.resource.__class__:
+                    # Skip if the perm is granted to another model
+                    continue
+
+                if assigned_perm.object_id and model._meta.pk.to_python(assigned_perm.object_id) == context.resource.pk:
+                    # Match if the object_id matches (and the model matches too)
+                    return True
+
+            if not assigned_perm.object_id:
+                # Match if the perm is granted to any object with model=resource.model or model=None
                 return True
 
         return False
