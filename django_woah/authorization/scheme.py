@@ -227,7 +227,7 @@ class ModelAuthorizationScheme(AuthorizationScheme):
                 and (assigned_perm.content_type is None and not assigned_perm.object_id)
                 or (
                     assigned_perm.content_type
-                    and assigned_perm.content_type.model_class
+                    and assigned_perm.content_type.model_class()
                     == context.resource.__class__
                     and (
                         (not assigned_perm.object_id)
