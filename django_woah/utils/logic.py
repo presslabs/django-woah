@@ -1,4 +1,4 @@
-#  Copyright 2024 Pressinfra SRL
+#  Copyright 2025 Pressinfra SRL
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -12,10 +12,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from .conditions import *  # noqa: F403
-from .context import *  # noqa: F403
-from .enum import *  # noqa: F403
-from .indirect_perms import *  # noqa: F403
-from .knowledge_base import *  # noqa: F403
-from .scheme import *  # noqa: F403
-from .solver import *  # noqa: F403
+
+def at_least_x_truthy(iterable, x) -> bool:
+    return sum(element and 1 or 0 for element in iterable) >= x

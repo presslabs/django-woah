@@ -30,11 +30,18 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import GenericViewSet
 from typing import Optional
 
-from django_woah.authorization import PermEnum
-from django_woah.authorization.context import CombinedContext
+from django_woah.authorization import (
+    PermEnum,
+    AuthorizationScheme,
+    ModelAuthorizationScheme,
+    HasSameResourcePerms,
+)
+from django_woah.authorization.context import CombinedContext, Context
 from django_woah.authorization.solver import AuthorizationSolver
+from django_woah.drf.fields import PermissionsField
 from django_woah.drf.permission import IsAuthorized
-from django_woah.utils.q import merge_qs
+from django_woah.models import AssignedPerm
+from django_woah.utils.q import merge_qs, pop_parts_of_q, optimize_q
 
 uninitialized = object()
 
@@ -102,6 +109,12 @@ class AuthorizationViewSetMixin:
 
         return self.model._meta.get_field(auth_relation_field).remote_field.model
 
+    @property
+    def authorization_scheme(self) -> ModelAuthorizationScheme:
+        return self.authorization_solver.get_auth_scheme_for_model(
+            self.authorization_model
+        )
+
     def get_required_permissions(self) -> list[PermEnum]:
         """
         A perms_map in the style of DRF's `DjangoModelPermissions` can be defined on the view.
@@ -152,29 +165,63 @@ class AuthorizationViewSetMixin:
         if cached_result is not uninitialized:
             return cached_result
 
-        context = CombinedContext()
+        authorization_context = CombinedContext()
 
-        for perm in self.get_required_permissions():
+        required_perms = self.get_required_permissions()
+
+        for perm in required_perms:
             if not isinstance(perm, PermEnum):
                 perm, _ = self.authorization_solver.clean_perm(perm)
 
-            context.add(
+            authorization_context.add(
                 self.authorization_solver.get_context(
                     actor=self.get_actor(),
                     perm=perm,
                     resource=self.authorization_model,
                     extra=self.get_authorization_context_extra(perm),
                     prefetch_assigned_perms=False,
+                    prefetch_memberships=False,
                 )
             )
 
-        context.assigned_perms = self.authorization_solver.get_assigned_perms_queryset(
-            context
-        )
+        if self._expected_to_get_perms():
+            special_context = CombinedContext()
 
-        self._cache[cache_key] = context
+            for perm in self.authorization_scheme.get_scheme_perms():
+                special_context.add(
+                    self.authorization_solver.get_context(
+                        actor=self.get_actor(),
+                        perm=perm,
+                        resource=self.authorization_model,
+                        extra=self.get_authorization_context_extra(perm),
+                        prefetch_assigned_perms=False,
+                        prefetch_memberships=False,
+                    )
+                )
 
-        return context
+            # Strip scheme perm from Q since we're fetching all of them anyway; optimize_q also helps to reduce the Q
+            q = optimize_q(
+                pop_parts_of_q(
+                    self.authorization_solver.get_assigned_perms_q(special_context),
+                    matcher=lambda *elements: (
+                        elements[0] == "perm"
+                        and elements[1].auth_scheme
+                        == self.authorization_scheme.__class__
+                    ),
+                )
+            )
+
+            authorization_context.assigned_perms = AssignedPerm.objects.filter(q)
+        else:
+            authorization_context.assigned_perms = (
+                self.authorization_solver.get_assigned_perms_queryset(
+                    authorization_context
+                )
+            )
+
+        self._cache[cache_key] = authorization_context
+
+        return authorization_context
 
     def get_authorization_model_q(self) -> Optional[Q]:
         cache_key = self.get_cache_key("get_authorization_model_q")
@@ -186,9 +233,7 @@ class AuthorizationViewSetMixin:
         qs = []
 
         for context in self.get_authorization_context().contexts:
-            qs.append(
-                self.authorization_solver.get_authorized_on_resources_q(context=context)
-            )
+            qs.append(self.authorization_solver.get_resources_q(context=context))
 
         q = merge_qs(qs)
 
@@ -216,7 +261,7 @@ class AuthorizationViewSetMixin:
         if cached_result is not uninitialized:
             return cached_result
 
-        queryset = self.authorization_solver.get_authorized_on_resources_queryset(
+        queryset = self.authorization_solver.get_resources_queryset(
             context=self.get_authorization_context(),
             base_queryset=base_queryset,
         )
@@ -233,6 +278,101 @@ class AuthorizationViewSetMixin:
         self._cache[cache_key] = queryset
 
         return queryset
+
+    def _expected_to_get_perms(self):
+        cache_key = "_expected_to_get_perms"
+        cached_result = self._cache[cache_key]
+
+        if cached_result is not uninitialized:
+            return cached_result
+
+        expected = False
+        if hasattr(self, "get_serializer_class"):
+            try:
+                serializer_class = self.get_serializer_class()
+            except AssertionError:
+                # The unlikely case of a ViewSet with undefined serializer_class logic... It's not our business.
+                serializer_class = None
+        else:
+            serializer_class = getattr(self, "serializer_class", None)
+
+        if serializer_class:
+            try:
+                fields = serializer_class().get_fields()
+            except (AttributeError, KeyError):
+                # Missing context["view"] resulting in serializer_class() KeyError.
+                # Serializer not being a model serialize resulting in .get_fields() AttributeError.
+                return False
+
+            for field in fields.values():
+                if isinstance(field, PermissionsField):
+                    expected = True
+                    break
+
+        self._cache[cache_key] = expected
+
+        return expected
+
+    def get_base_context_for_get_perms(self):
+        """
+        Only call this method once filtering based on the authorization has been performed!
+        """
+
+        cache_key = "get_base_context_for_get_perms"
+        cached_result = self._cache[cache_key]
+
+        if cached_result is not uninitialized:
+            return cached_result
+
+        root_context = self.get_authorization_context()
+
+        context_for_memberships = CombinedContext()
+        context_for_memberships.assigned_perms = root_context.assigned_perms
+
+        # Because of filtering and pagination (and how DRF methods are badly composed), we expect to have the resources
+        # that are about to be serialized in this attribute... The default viewset implementation (not this mixin)
+        # overrides the `.get_serializer()` method to achieve this.
+        returned_resources = getattr(self, "resources_to_be_serialized", None)
+
+        if not returned_resources:
+            # If the resources haven't been pinned, well... we run the same duplicated filtering and pagination logic.
+            returned_resources = self.filter_queryset(self.get_queryset())
+            page = self.paginate_queryset(returned_resources)
+            if page:
+                returned_resources = page
+
+        for resource in returned_resources:
+            context_for_memberships.add(
+                Context(
+                    actor=root_context.contexts[0].actor, perm=None, resource=resource
+                )
+            )
+
+        context = Context(
+            actor=root_context.contexts[0].actor, perm=None, resource=resource
+        )
+        context.assigned_perms = context_for_memberships.assigned_perms
+
+        context.memberships = list(
+            [
+                m
+                for m in self.authorization_solver.get_memberships_queryset(
+                    context_for_memberships
+                )
+            ]
+        )
+
+        self._cache[cache_key] = context
+
+        return context
+
+    def get_perms_for_resource(self, resource):
+        base_context = self.get_base_context_for_get_perms()
+        context = base_context.subcontext(resource=resource)
+
+        return self.authorization_solver.get_perms(context).get(
+            (self.get_actor(), resource), []
+        )
 
     def get_authorization_model_object(
         self, skip_authorization=False
@@ -266,19 +406,30 @@ class AuthorizationViewSetMixin:
         return obj
 
     def get_requested_model_queryset(self):
+        cache_key = self.get_cache_key("get_requested_model_queryset")
+        cached_result = self._cache[cache_key]
+
+        if cached_result is not uninitialized:
+            return cached_result
+
         queryset = getattr(self, "queryset", None)
 
         if self.model == self.authorization_model:
-            return self.get_authorization_model_queryset(base_queryset=queryset)
+            queryset = self.get_authorization_model_queryset(base_queryset=queryset)
 
-        if not queryset:
-            queryset = self.model.objects
+        else:
+            if not queryset:
+                queryset = self.model.objects
 
-        return queryset.filter(
-            **{
-                f"{self.get_authorization_relation()}__in": self.get_authorization_model_queryset()
-            }
-        )
+            queryset = queryset.filter(
+                **{
+                    f"{self.get_authorization_relation()}__in": self.get_authorization_model_queryset()
+                }
+            )
+
+        self._cache[cache_key] = queryset
+
+        return queryset
 
     def get_unsaved_resource(self, initial_obj=None) -> Model:
         """
@@ -388,7 +539,7 @@ class AuthorizationViewSetMixin:
             for context in combined_context.contexts:
                 context.resource = resource
 
-            return self.authorization_solver.get_authorized_on_resources_queryset(
+            return self.authorization_solver.get_resources_queryset(
                 context=combined_context,
             ).exists()
 
@@ -401,7 +552,7 @@ class AuthorizationViewSetMixin:
             for context in combined_context.contexts:
                 context.resource = resource
 
-            return self.authorization_solver.is_authorized_for_unsaved_resource(
+            return self.authorization_solver.verify_authorization(
                 context=combined_context,
             )
         except (AttributeError, ValueError):
@@ -427,6 +578,16 @@ class AuthorizationGenericViewSet(AuthorizationViewSetMixin, GenericViewSet):
             return super().get_object()
         except Http404:
             raise PermissionDenied()
+
+    def get_serializer(self, *args, **kwargs):
+        if args:
+            resources = args[0]
+            if isinstance(resources, Model):
+                resources = [resources]
+
+            setattr(self, "resources_to_be_serialized", resources)
+
+        return super().get_serializer(*args, **kwargs)
 
 
 class AuthorizationModelViewSet(

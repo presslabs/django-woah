@@ -150,9 +150,7 @@ class ResourceHyperlinkedRelatedField(serializers.Serializer):
                 continue
 
         raise ValidationError(
-            serializers.HyperlinkedRelatedField.default_error_messages[
-                "incorrect_match"
-            ]
+            serializers.HyperlinkedRelatedField.default_error_messages["incorrect_match"]
         )
 
     def to_representation(self, value):

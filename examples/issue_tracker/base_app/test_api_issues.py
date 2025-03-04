@@ -29,9 +29,7 @@ def test_list_issues_empty(api_client, unrelated_account, unrelated_organization
     assert response.data == []
 
 
-def test_list_issues_as_owner_no_membership(
-    api_client, account, unrelated_organization
-):
+def test_list_issues_as_owner_no_membership(api_client, account, unrelated_organization):
     Issue.objects.create(
         owner=unrelated_organization,
         author=account,
@@ -53,18 +51,14 @@ def test_list_issues_as_project_owner(api_client, account):
     account.save()
 
     org_users = UserGroup.objects.create(kind=UserGroup.KINDS.ROOT, owner=account)
-    Membership.objects.create(
-        user=account, user_group=org_users, root_user_group=org_users
-    )
+    Membership.objects.create(user=account, user_group=org_users, root_user_group=org_users)
 
     issue = Issue.objects.create(
         owner=account,
         author=account,
         title="Issue #1",
         content="Help I can't install the deps!!!11",
-        project=Project.objects.create(
-            owner=account, created_by=account, name="Project"
-        ),
+        project=Project.objects.create(owner=account, created_by=account, name="Project"),
     )
 
     response = api_client.get(reverse_lazy("issue-list"))
@@ -90,13 +84,9 @@ def test_list_issues_as_authorized_org_member(api_client, account, unrelated_acc
     unrelated_account.is_organization = True
     unrelated_account.save()
 
-    org_users = UserGroup.objects.create(
-        kind=UserGroup.KINDS.ROOT, owner=unrelated_account
-    )
+    org_users = UserGroup.objects.create(kind=UserGroup.KINDS.ROOT, owner=unrelated_account)
 
-    Membership.objects.create(
-        user=account, user_group=org_users, root_user_group=org_users
-    )
+    Membership.objects.create(user=account, user_group=org_users, root_user_group=org_users)
 
     issue = Issue.objects.create(
         owner=unrelated_account,
@@ -139,13 +129,9 @@ def test_list_issues_as_org_member_with_explicit_issue_view_authorization_for_al
     unrelated_account.is_organization = True
     unrelated_account.save()
 
-    org_users = UserGroup.objects.create(
-        kind=UserGroup.KINDS.ROOT, owner=unrelated_account
-    )
+    org_users = UserGroup.objects.create(kind=UserGroup.KINDS.ROOT, owner=unrelated_account)
 
-    Membership.objects.create(
-        user=account, user_group=org_users, root_user_group=org_users
-    )
+    Membership.objects.create(user=account, user_group=org_users, root_user_group=org_users)
 
     issue = Issue.objects.create(
         owner=unrelated_account,
@@ -182,19 +168,13 @@ def test_list_issues_as_org_member_with_explicit_issue_view_authorization_for_al
     ]
 
 
-def test_list_issues_as_org_member_and_issue_ownership(
-    api_client, account, unrelated_account
-):
+def test_list_issues_as_org_member_and_issue_ownership(api_client, account, unrelated_account):
     unrelated_account.is_organization = True
     unrelated_account.save()
 
-    org_users = UserGroup.objects.create(
-        kind=UserGroup.KINDS.ROOT, owner=unrelated_account
-    )
+    org_users = UserGroup.objects.create(kind=UserGroup.KINDS.ROOT, owner=unrelated_account)
 
-    Membership.objects.create(
-        user=account, user_group=org_users, root_user_group=org_users
-    )
+    Membership.objects.create(user=account, user_group=org_users, root_user_group=org_users)
 
     issue = Issue.objects.create(
         owner=unrelated_account,
@@ -225,43 +205,37 @@ def test_list_issues_as_org_member_and_issue_ownership(
     ]
 
 
-def test_issue_get_accounts_authorized_to_view(
-    account, unrelated_account, organization
-):
+def test_issue_get_accounts_authorized_to_view(account, unrelated_account, organization):
     issue = Issue.objects.create(
         owner=organization,
         author=account,
         title="Issue #1",
         content="Help I can't install the deps!!!11",
-        project=Project.objects.create(
-            owner=organization, created_by=organization, name="Project"
-        ),
+        project=Project.objects.create(owner=organization, created_by=organization, name="Project"),
     )
 
-    assert list(
-        issue.get_authorized_accounts(IssueAuthorizationScheme.Perms.ISSUE_VIEW)
-    ) == [account]
+    assert list(issue.get_authorized_accounts(IssueAuthorizationScheme.Perms.ISSUE_VIEW)) == [
+        account
+    ]
 
     unrelated_account_membership, _ = create_user_membership_to_account(
         unrelated_account, organization
     )
 
-    assert list(
-        issue.get_authorized_accounts(IssueAuthorizationScheme.Perms.ISSUE_VIEW)
-    ) == [account, unrelated_account]
+    assert list(issue.get_authorized_accounts(IssueAuthorizationScheme.Perms.ISSUE_VIEW)) == [
+        account,
+        unrelated_account,
+    ]
 
     account_membership = Membership.objects.get(
         user=account, user_group=get_or_create_root_user_group(organization)
     )
     account_membership.delete()
 
-    assert list(
-        issue.get_authorized_accounts(IssueAuthorizationScheme.Perms.ISSUE_VIEW)
-    ) == [unrelated_account]
+    assert list(issue.get_authorized_accounts(IssueAuthorizationScheme.Perms.ISSUE_VIEW)) == [
+        unrelated_account
+    ]
 
     unrelated_account_membership.delete()
 
-    assert (
-        list(issue.get_authorized_accounts(IssueAuthorizationScheme.Perms.ISSUE_VIEW))
-        == []
-    )
+    assert list(issue.get_authorized_accounts(IssueAuthorizationScheme.Perms.ISSUE_VIEW)) == []

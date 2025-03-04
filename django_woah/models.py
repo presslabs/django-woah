@@ -86,14 +86,10 @@ class UserGroup(AutoCleanModel):
 
     def clean(self):
         if self.root and not self.parent:
-            raise ValidationError(
-                "A parent must be specified for a non-root UserGroup."
-            )
+            raise ValidationError("A parent must be specified for a non-root UserGroup.")
 
         if self.kind == UserGroupKind.USER and not self.parent_membership:
-            raise ValidationError(
-                "A parent membership must be specified for a user UserGroup."
-            )
+            raise ValidationError("A parent membership must be specified for a user UserGroup.")
 
         if not self.name:
             username = ""
@@ -118,42 +114,32 @@ class AssignedPermManager(models.Manager):
 
     def filter(self, *args, **kwargs):
         if kwargs and (resource := kwargs.pop("resource", None)):
-            kwargs["content_type"] = ContentType.objects.get_for_model(
-                resource.__class__
-            )
+            kwargs["content_type"] = ContentType.objects.get_for_model(resource.__class__)
             kwargs["object_id"] = resource.pk
 
         return super().filter(*args, **kwargs)
 
     def get(self, *args, **kwargs):
         if kwargs and (resource := kwargs.pop("resource", None)):
-            kwargs["content_type"] = ContentType.objects.get_for_model(
-                resource.__class__
-            )
+            kwargs["content_type"] = ContentType.objects.get_for_model(resource.__class__)
             kwargs["object_id"] = resource.pk
 
         return super().get(*args, **kwargs)
 
     def create(self, defaults=None, **kwargs):
         if resource := kwargs.pop("resource", None):
-            kwargs["content_type"] = ContentType.objects.get_for_model(
-                resource.__class__
-            )
+            kwargs["content_type"] = ContentType.objects.get_for_model(resource.__class__)
             kwargs["object_id"] = resource.pk
 
         return super().create(**kwargs)
 
     def get_or_create(self, defaults=None, **kwargs):
         if defaults and (resource := defaults.pop("resource", None)):
-            defaults["content_type"] = ContentType.objects.get_for_model(
-                resource.__class__
-            )
+            defaults["content_type"] = ContentType.objects.get_for_model(resource.__class__)
             defaults["object_id"] = resource.pk
 
         if resource := kwargs.pop("resource", None):
-            kwargs["content_type"] = ContentType.objects.get_for_model(
-                resource.__class__
-            )
+            kwargs["content_type"] = ContentType.objects.get_for_model(resource.__class__)
             kwargs["object_id"] = resource.pk
 
         return super().get_or_create(defaults=defaults, **kwargs)
@@ -178,9 +164,7 @@ class AssignedPerm(AutoCleanModel):
     )
     perm = models.CharField(max_length=128)
 
-    content_type = models.ForeignKey(
-        ContentType, on_delete=models.CASCADE, null=True, blank=True
-    )
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE, null=True, blank=True)
     object_id = models.CharField(null=True, blank=True, max_length=40)
     resource = GenericForeignKey("content_type", "object_id")
 
@@ -227,9 +211,7 @@ class Membership(AutoCleanModel):
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="memberships"
     )
 
-    user_group = models.ForeignKey(
-        UserGroup, on_delete=models.CASCADE, related_name="memberships"
-    )
+    user_group = models.ForeignKey(UserGroup, on_delete=models.CASCADE, related_name="memberships")
 
     # This is some yet to be decided denormalization
     root_user_group = models.ForeignKey(
@@ -248,9 +230,7 @@ class Membership(AutoCleanModel):
 
     class Meta:
         constraints = [
-            UniqueConstraint(
-                fields=("user", "user_group"), name="unique_user_to_group_membership"
-            ),
+            UniqueConstraint(fields=("user", "user_group"), name="unique_user_to_group_membership"),
         ]
 
     def clean(self):
@@ -263,9 +243,7 @@ class Membership(AutoCleanModel):
             self.is_outside_collaborator = False
 
             if not self.user == self.user_group.related_user:
-                raise ValidationError(
-                    "User must match with the UserGroup(kind=USER) related_user."
-                )
+                raise ValidationError("User must match with the UserGroup(kind=USER) related_user.")
 
         root_user_group = self.user_group.root or self.user_group
         if not root_user_group:
@@ -388,8 +366,6 @@ def assign_perm(perm, to_user, on_account, for_resource=None) -> AssignedPerm:
         kwargs["resource"] = for_resource
 
     return AssignedPerm.objects.create(
-        user_group=get_single_user_user_group(
-            related_to_user=to_user, owned_by_account=on_account
-        ),
+        user_group=get_single_user_user_group(related_to_user=to_user, owned_by_account=on_account),
         perm=perm,
     )
