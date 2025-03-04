@@ -1,4 +1,4 @@
-#  Copyright 2024 Pressinfra SRL
+#  Copyright 2025 Pressinfra SRL
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -11,11 +11,14 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from rest_framework.fields import Field
 
-from .conditions import *  # noqa: F403
-from .context import *  # noqa: F403
-from .enum import *  # noqa: F403
-from .indirect_perms import *  # noqa: F403
-from .knowledge_base import *  # noqa: F403
-from .scheme import *  # noqa: F403
-from .solver import *  # noqa: F403
+
+class PermissionsField(Field):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, source="*", read_only=True, **kwargs)
+
+    def to_representation(self, value):
+        view = self.context["view"]
+
+        return [str(perm) for perm in view.get_perms_for_resource(value)]

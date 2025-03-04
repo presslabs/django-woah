@@ -38,10 +38,7 @@ class IndirectPerms:
     def get_memberships_q(self, context: Context) -> Optional[Q]:
         raise NotImplementedError
 
-    def is_authorized_for_prefetched_resource(self, context: Context) -> bool:
-        raise NotImplementedError
-
-    def is_authorized_for_unsaved_resource(self, context: Context) -> bool:
+    def verify_authorization(self, context: Context) -> bool:
         raise NotImplementedError
 
     def set_scheme(self, scheme):
@@ -50,9 +47,7 @@ class IndirectPerms:
 
 
 class ConditionalPerms(IndirectPerms):
-    def __init__(
-        self, conditions: list[Condition], receives_perms: list[PermEnum], **kwargs
-    ):
+    def __init__(self, conditions: list[Condition], receives_perms: list[PermEnum], **kwargs):
         self.conditions: list[Condition] = conditions
         self.receives_perms: list[PermEnum] = receives_perms
 
@@ -65,9 +60,7 @@ class ConditionalPerms(IndirectPerms):
             condition.set_scheme(self.scheme)
 
     def get_resources_q(self, context: Context) -> Optional[Q]:
-        return merge_qs(
-            [condition.get_resources_q(context) for condition in self.conditions]
-        )
+        return merge_qs([condition.get_resources_q(context) for condition in self.conditions])
 
     def get_assigned_perms_q(self, context: Context) -> Optional[Q]:
         return merge_qs(
@@ -84,17 +77,18 @@ class ConditionalPerms(IndirectPerms):
     def can_receive_perms(self):
         return self.receives_perms
 
-    def is_authorized_for_prefetched_resource(self, context: Context) -> bool:
-        return all(
-            condition.is_authorized_for_prefetched_resource(context)
-            for condition in self.conditions
-        )
+    def verify_authorization(self, context: Context) -> bool:
+        for condition in self.conditions:
+            if (known := self.scheme._check_knowledgebase(context, condition)) is not None:
+                result = known
+            else:
+                result = condition.verify_authorization(context)
+                self.scheme._add_to_knowledgebase(context, condition, truth=result)
 
-    def is_authorized_for_unsaved_resource(self, context: Context) -> bool:
-        return all(
-            condition.is_authorized_for_unsaved_resource(context)
-            for condition in self.conditions
-        )
+            if not result:
+                return False
+
+        return True
 
     def __repr__(self):
         return f"{self.__class__.__name__}: {self.conditions} -> {self.receives_perms}"
@@ -110,9 +104,7 @@ class TransitiveFromRelationPerms(IndirectPerms):
     def set_scheme(self, scheme):
         super().set_scheme(scheme)
 
-        self.restrict_to_perms = self.restrict_to_perms.intersection(
-            self.scheme.Perms.values()
-        )
+        self.restrict_to_perms = self.restrict_to_perms.intersection(self.scheme.Perms.values())
         self.relation_scheme = self.scheme.get_auth_scheme_by_relation(self.relation)
 
         if not self.restrict_to_perms:
@@ -127,9 +119,7 @@ class TransitiveFromRelationPerms(IndirectPerms):
 
     def get_resources_q(self, context: Context) -> Optional[Q]:
         if context.perm not in self.restrict_to_perms:
-            raise ValueError(
-                f"{context.perm} not in restrict_to_perms {self.restrict_to_perms}"
-            )
+            raise ValueError(f"{context.perm} not in restrict_to_perms {self.restrict_to_perms}")
 
         context = context.subcontext(resource=self.relation_scheme.model)
 
@@ -143,9 +133,7 @@ class TransitiveFromRelationPerms(IndirectPerms):
         relation_resource = self.relation_scheme.model
 
         if isinstance(context.resource, self.scheme.model):
-            concrete_relation_resource = get_object_relation(
-                context.resource, self.relation
-            )
+            concrete_relation_resource = get_object_relation(context.resource, self.relation)
             if concrete_relation_resource is None:
                 return None
 
@@ -160,9 +148,7 @@ class TransitiveFromRelationPerms(IndirectPerms):
         relation_resource = self.relation_scheme.model
 
         if isinstance(context.resource, self.scheme.model):
-            concrete_relation_resource = get_object_relation(
-                context.resource, self.relation
-            )
+            concrete_relation_resource = get_object_relation(context.resource, self.relation)
             if concrete_relation_resource is None:
                 return None
 
@@ -176,29 +162,22 @@ class TransitiveFromRelationPerms(IndirectPerms):
     def can_receive_perms(self) -> list[PermEnum]:
         return self.restrict_to_perms
 
-    def is_authorized_for_prefetched_resource(self, context: Context) -> bool:
+    def verify_authorization(self, context: Context) -> bool:
         if context.perm not in self.restrict_to_perms:
-            raise ValueError(
-                f"{context.perm} not in restrict_to_perms {self.restrict_to_perms}"
-            )
+            raise ValueError(f"{context.perm} not in restrict_to_perms {self.restrict_to_perms}")
 
-        context = context.subcontext(
-            resource=get_object_relation(context.resource, self.relation)
-        )
+        resource = get_object_relation(context.resource, self.relation)
+        if resource is None:
+            return False
 
-        return self.relation_scheme.is_authorized_for_prefetched_resource(context)
+        context = context.subcontext(resource=get_object_relation(context.resource, self.relation))
 
-    def is_authorized_for_unsaved_resource(self, context: Context) -> bool:
-        if context.perm not in self.restrict_to_perms:
-            raise ValueError(
-                f"{context.perm} not in restrict_to_perms {self.restrict_to_perms}"
-            )
+        # TODO: check if we (always) have to fetch new assigned_perms or they're being fetched already
 
-        context = context.subcontext(
-            resource=get_object_relation(context.resource, self.relation)
-        )
+        if context.resource.pk:
+            return self.relation_scheme.verify_authorization(context)
 
         solver = self.scheme.auth_solver
         context.assigned_perms = solver.get_assigned_perms_queryset(context)
 
-        return solver.get_authorized_on_resources_queryset(context).exists()
+        return solver.get_resources_queryset(context).exists()

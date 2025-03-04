@@ -1,4 +1,4 @@
-#  Copyright 2024 Pressinfra SRL
+#  Copyright 2025 Pressinfra SRL
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -13,13 +13,17 @@
 #  limitations under the License.
 
 from dataclasses import dataclass, field
+
 from django.contrib.auth.models import AbstractUser
 from django.db.models import Model
 from typing import Optional, Union
 
 from django_woah.models import AssignedPerm, Membership
 from .enum import PermEnum
+from .knowledge_base import KnowledgeBase
 
+
+uninitialized = object()
 
 @dataclass
 class Context:
@@ -31,15 +35,21 @@ class Context:
     _assigned_perms: Optional[list[AssignedPerm]] = None
     _memberships: Optional[list[Membership]] = None
     _depth: int = 0
+    _knowledge_base: Optional[KnowledgeBase] = None
     _root: Optional[Union["Context", "CombinedContext"]] = None
 
-    def subcontext(self, perm=None, resource=None):
+    def subcontext(self, perm: Optional[PermEnum]=uninitialized, resource=uninitialized):
+        if perm is uninitialized:
+            perm = self.perm
+
+        if resource is uninitialized:
+            resource = self.resource
+
         return Context(
             actor=self.actor,
-            perm=perm or self.perm,
-            resource=resource or self.resource,
+            perm=perm,
+            resource=resource,
             extra=self.extra,
-            # _assigned_perms=self.assigned_perms,
             _depth=self._depth,
             _root=self._root or self,
         )
@@ -58,7 +68,7 @@ class Context:
     @property
     def memberships(self):
         if self._memberships is None and self._root:
-            return self._root._memberships
+            return self._root.memberships
 
         return self._memberships
 
@@ -66,12 +76,27 @@ class Context:
     def memberships(self, value):
         self._memberships = value
 
+    @property
+    def knowledge_base(self):
+        if self._knowledge_base is None and self._root:
+            return self._root.knowledge_base
+
+        if not self._knowledge_base:
+            self._knowledge_base = KnowledgeBase()
+
+        return self._knowledge_base
+
+    @knowledge_base.setter
+    def knowledge_base(self, value):
+        self._knowledge_base = value
+
 
 @dataclass
 class CombinedContext:
     contexts: list[Context] = field(default_factory=list)
     assigned_perms: Optional[list[AssignedPerm]] = None
     memberships: Optional[list[Membership]] = None
+    knowledge_base: KnowledgeBase = field(default_factory=KnowledgeBase)
 
     def __post_init__(self):
         self.validate()
@@ -94,5 +119,6 @@ class CombinedContext:
             if context.actor != actor:
                 raise ValueError("Cannot have contexts with different actors.")
 
-            if context.resource != resource:
-                raise ValueError("Cannot have contexts with different resources.")
+            if isinstance(resource, Model):
+                if not isinstance(context.resource, resource.__class__):
+                    raise ValueError("If contexts use different resources, they must be of same Model.")

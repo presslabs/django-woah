@@ -56,12 +56,8 @@ def test_add_member_to_org_no_permission(api_client, account, organization):
 
 
 def test_add_member_to_org_allowed(api_client, account, organization):
-    root_org_user_group = UserGroup.objects.get(
-        kind=UserGroup.KINDS.ROOT, owner=organization
-    )
-    account_user_group = UserGroup.objects.get(
-        related_user=account, root=root_org_user_group
-    )
+    root_org_user_group = UserGroup.objects.get(kind=UserGroup.KINDS.ROOT, owner=organization)
+    account_user_group = UserGroup.objects.get(related_user=account, root=root_org_user_group)
 
     AssignedPerm.objects.create(
         user_group=account_user_group,

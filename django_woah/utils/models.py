@@ -92,3 +92,8 @@ class AutoCleanModel(models.Model):
         super().full_clean(*args, **kwargs)
 
         self.is_cleaned = True
+
+
+class FakePK(int):
+    def is_fake(self):
+        return True

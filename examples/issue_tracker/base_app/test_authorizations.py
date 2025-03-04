@@ -61,7 +61,7 @@ def test_add_assigned_perm_actor_cant_give_rights_they_dont_have(
         perm=AssignedPermAuthorizationScheme.Perms.AUTHORIZATION_ADD,
     )
 
-    assert not AuthorizationSolver.get_authorized_on_resources_queryset(
+    assert not AuthorizationSolver.get_resources_queryset(
         context=AuthorizationSolver.get_context(
             perm=MembershipAuthorizationScheme.Perms.MEMBERSHIP_CREATE,
             actor=account,
@@ -109,7 +109,7 @@ def test_add_assigned_perm_when_assigned_perm_is_given_on_user_group(
         perm=MembershipAuthorizationScheme.Perms.MEMBERSHIP_CREATE,
     )
 
-    assert AuthorizationSolver.get_authorized_on_resources_queryset(
+    assert AuthorizationSolver.get_resources_queryset(
         context=AuthorizationSolver.get_context(
             perm=MembershipAuthorizationScheme.Perms.MEMBERSHIP_CREATE,
             actor=account,
@@ -164,7 +164,7 @@ def test_add_assigned_perm_when_assigned_perm_is_given_on_user_group(
 #         perm=MembershipAuthorizationScheme.Perms.MEMBERSHIP_CREATE,
 #     )
 #
-#     assert AuthorizationSolver.get_authorized_on_resources_queryset(
+#     assert AuthorizationSolver.get_resources_queryset(
 #         context=AuthorizationSolver.get_context(
 #             perm=MembershipAuthorizationScheme.Perms.MEMBERSHIP_CREATE,
 #             actor=account,

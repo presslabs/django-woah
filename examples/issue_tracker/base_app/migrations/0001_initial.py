@@ -7,78 +7,205 @@ import uuid6
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Account',
+            name="Account",
             fields=[
-                ('password', models.CharField(max_length=128, verbose_name='password')),
-                ('last_login', models.DateTimeField(blank=True, null=True, verbose_name='last login')),
-                ('id', models.UUIDField(default=uuid6.uuid7, primary_key=True, serialize=False, unique=True)),
-                ('username', models.CharField(max_length=64, unique=True)),
-                ('name', models.TextField(max_length=512)),
-                ('email', models.EmailField(max_length=254, unique=True)),
-                ('is_organization', models.BooleanField(default=False)),
+                ("password", models.CharField(max_length=128, verbose_name="password")),
+                (
+                    "last_login",
+                    models.DateTimeField(blank=True, null=True, verbose_name="last login"),
+                ),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid6.uuid7,
+                        primary_key=True,
+                        serialize=False,
+                        unique=True,
+                    ),
+                ),
+                ("username", models.CharField(max_length=64, unique=True)),
+                ("name", models.TextField(max_length=512)),
+                ("email", models.EmailField(max_length=254, unique=True)),
+                ("is_organization", models.BooleanField(default=False)),
             ],
             options={
-                'abstract': False,
+                "abstract": False,
             },
         ),
         migrations.CreateModel(
-            name='Project',
+            name="Project",
             fields=[
-                ('id', models.UUIDField(default=uuid6.uuid7, primary_key=True, serialize=False, unique=True)),
-                ('name', models.CharField(max_length=128)),
-                ('is_private', models.BooleanField(default=False)),
-                ('created_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='created_projects', to=settings.AUTH_USER_MODEL)),
-                ('owner', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='owned_projects', to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid6.uuid7,
+                        primary_key=True,
+                        serialize=False,
+                        unique=True,
+                    ),
+                ),
+                ("name", models.CharField(max_length=128)),
+                ("is_private", models.BooleanField(default=False)),
+                (
+                    "created_by",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="created_projects",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "owner",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="owned_projects",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='Issue',
+            name="Issue",
             fields=[
-                ('id', models.UUIDField(default=uuid6.uuid7, primary_key=True, serialize=False, unique=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('title', models.CharField(max_length=512)),
-                ('content', models.TextField()),
-                ('state', models.CharField(default='open', max_length=16)),
-                ('author', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='authored_issues', to=settings.AUTH_USER_MODEL)),
-                ('owner', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='owned_issues', to=settings.AUTH_USER_MODEL)),
-                ('project', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='issues', to='base_app.project')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid6.uuid7,
+                        primary_key=True,
+                        serialize=False,
+                        unique=True,
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("title", models.CharField(max_length=512)),
+                ("content", models.TextField()),
+                ("state", models.CharField(default="open", max_length=16)),
+                (
+                    "author",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="authored_issues",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "owner",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="owned_issues",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "project",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="issues",
+                        to="base_app.project",
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='HistoricIssueVersion',
+            name="HistoricIssueVersion",
             fields=[
-                ('id', models.UUIDField(default=uuid6.uuid7, primary_key=True, serialize=False, unique=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('content', models.TextField()),
-                ('state', models.CharField(default='open', max_length=16)),
-                ('actor', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
-                ('issue', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='base_app.issue')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid6.uuid7,
+                        primary_key=True,
+                        serialize=False,
+                        unique=True,
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("content", models.TextField()),
+                ("state", models.CharField(default="open", max_length=16)),
+                (
+                    "actor",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "issue",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE, to="base_app.issue"
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='Comment',
+            name="Comment",
             fields=[
-                ('id', models.UUIDField(default=uuid6.uuid7, primary_key=True, serialize=False, unique=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('content', models.TextField()),
-                ('author', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
-                ('issue', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='base_app.issue')),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid6.uuid7,
+                        primary_key=True,
+                        serialize=False,
+                        unique=True,
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("content", models.TextField()),
+                (
+                    "author",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "issue",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE, to="base_app.issue"
+                    ),
+                ),
             ],
         ),
         migrations.CreateModel(
-            name='Assignation',
+            name="Assignation",
             fields=[
-                ('id', models.UUIDField(default=uuid6.uuid7, primary_key=True, serialize=False, unique=True)),
-                ('issue', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='base_app.issue')),
-                ('user', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to=settings.AUTH_USER_MODEL)),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid6.uuid7,
+                        primary_key=True,
+                        serialize=False,
+                        unique=True,
+                    ),
+                ),
+                (
+                    "issue",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE, to="base_app.issue"
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
             ],
         ),
     ]

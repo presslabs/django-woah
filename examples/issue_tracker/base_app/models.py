@@ -36,8 +36,8 @@ class AuthorizationMixin:
         if perm not in authorization_scheme.get_scheme_perms():
             raise ValueError(f"{perm} is not part of {authorization_scheme}'s perms.")
 
-        return AuthorizationSolver.get_authorized_actors_queryset(
-            AuthorizationSolver.get_context_no_actor(
+        return AuthorizationSolver.get_actors_queryset(
+            AuthorizationSolver.get_context(
                 resource=self, perm=perm, prefetch_memberships=True
             )
         )
