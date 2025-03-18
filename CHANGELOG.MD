@@ -9,6 +9,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 N/A
 
 
+## [0.4.0] - 2025-03-18
+With this release, a few more shortcomings and limitations have been knocked out.
+
+## Added
+  - Added an `AuthorizationSolver.get_perms` method for fetching all the permissions an actor has on resource(s).
+  - Added a DRF field called `PermissionsField` which will output all the permissions the user has on the serialized resource.
+    - If it's important, do your own benchmarking, but the performance penalty I encountered is a base of ~20ms, and then about 2ms for each resource in the listing:
+      - ~160ms for the original request, with 20 resources listed;
+      - ~200ms with 30 perms to check for each of the 20 resources (with `PermissionField`); this might be a best-case scenario though...
+  - Added an experimental and subject to change `Context.knowledge_base` that basically retains information in the form of (Actor, Condition, Resource, Truth). It is mainly used for optimization purposes, especially for calling `AuthorizationSolver.get_perms`.
+  - Added an `AuthorizationScheme.get_perms_pseudo_hierarchy` method to roughly determine the hierarchy of perms/roles (higher value means less important). It is mainly used for optimization purposes, especially for calling `AuthorizationSolver.get_perms`.
+
+### Changed
+- Simplified solver/scheme method names:
+  - `get_authorized_resources_*` -> `get_resources_*` **Breaking Change**
+  - `is_authorized_for_prefetched_resource` and `is_authorized_for_unsaved_resource` merged into `verify_authorization` **Breaking Change**
+- Improved both the performance and results of the `optimize_q` util, by rewriting it from scratch to not depend on sympy. This should translate into better and more consistent response times, especially for more complex authorization logic.
+
+### Fixed
+- When calling `Context.subcontext()` with `perm=None` or `resource=None`, those parameters will be respected, meaning the perm/resource will actually be set to None, instead of the parent context's being kept. **Potentially Breaking Change**
+
+
 ## [0.3.2] - 2025-02-27
 ### Fixed
 - Fix object_id check in is_directly_authorized_for_prefetched_resource
@@ -34,12 +56,12 @@ N/A
 - Added a couple more utils for handling Qs, but as always these are not really meant to be public and may be changed or removed at any time.
 
 ### Changed
-- Change mentions of "authorized_resources" to "authorized_on_resources". So `get_authorized_resources_q` and `get_authorized_resources_queryset` methods become `get_authorized_on_resources_q` and `get_authorized_on_resources_queryset`. **Breaking Change**
+- Change mentions of "authorized_resources" to "authorized_on_resources". So `get_authorized_resources_q` and `get_authorized_resources_queryset` methods become `get_authorized_on_resources_q` and `get_resources_queryset`. **Breaking Change**
 - Improved `assign_perm` helper to optionally receive a `for_resource` parameter.
 - Allow `AssignedPerm.objects.create()` to receive a `resource` parameter.
 
 ### Fixed
-- Preserve explicit and model defined ordering when passing a `base_queryset` to `AuthorizationSolver.get_authorized_on_resources_queryset`
+- Preserve explicit and model defined ordering when passing a `base_queryset` to `AuthorizationSolver.get_resources_queryset`
 - Handle case of related object being `None` in `HasRelatedResourcePerms.is_authorized_for_unsaved_resource`
 - Handle case when trying to `assign_perm` to a user, on an account it doesn't have membership to.
 - Fixed `TransitiveFromRelationPerms.is_authorized_for_unsaved_resource`
