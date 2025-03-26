@@ -16,7 +16,7 @@ from collections import defaultdict
 
 from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db.models import Model
+from django.db.models import Model, QuerySet
 from django.db.models import Q
 from django.http import Http404
 from rest_framework import mixins
@@ -212,12 +212,30 @@ class AuthorizationViewSetMixin:
             )
 
             authorization_context.assigned_perms = AssignedPerm.objects.filter(q)
+
+            if getattr(
+                self, "authorization_prefetch_memberships_before_resources", True
+            ):
+                authorization_context.memberships = list(
+                    self.authorization_solver.get_memberships_queryset(
+                        authorization_context
+                    )
+                )
+
         else:
             authorization_context.assigned_perms = (
                 self.authorization_solver.get_assigned_perms_queryset(
                     authorization_context
                 )
             )
+            if getattr(
+                self, "authorization_prefetch_memberships_before_resources", False
+            ):
+                authorization_context.memberships = list(
+                    self.authorization_solver.get_memberships_queryset(
+                        authorization_context
+                    )
+                )
 
         self._cache[cache_key] = authorization_context
 
@@ -325,6 +343,21 @@ class AuthorizationViewSetMixin:
             return cached_result
 
         root_context = self.get_authorization_context()
+
+        if isinstance(root_context.memberships, list) or isinstance(
+            root_context.memberships, QuerySet
+        ):
+            context = Context(
+                actor=root_context.contexts[0].actor,
+                perm=None,
+                resource=root_context.contexts[0].resource,
+            )
+            context.assigned_perms = root_context.assigned_perms
+            context.memberships = root_context.memberships
+
+            self._cache[cache_key] = context
+
+            return context
 
         context_for_memberships = CombinedContext()
         context_for_memberships.assigned_perms = root_context.assigned_perms
