@@ -17,7 +17,7 @@ import enum
 import time
 
 from django.core.exceptions import FieldDoesNotExist, ObjectDoesNotExist
-from django.db.models import Q, Field, Model
+from django.db.models import Q, Field, Model, QuerySet
 from functools import reduce
 from typing import Optional, Callable, TYPE_CHECKING
 
@@ -199,12 +199,12 @@ class BaseOwnerCondition(Condition):
     def set_scheme(self, scheme):
         super().set_scheme(scheme)
 
-        relation_model = (
+        self.relation_model = (
             self.scheme.model
             if self.scheme.owner_relation == "*"
             else self.scheme.get_model_for_relation(self.scheme.owner_relation)
         )
-        self.relation_is_user_group = relation_model == UserGroup
+        self.relation_is_user_group = self.relation_model == UserGroup
         self.relation = self.scheme.owner_relation
         self.account_owner_relation = (
             self.relation
@@ -224,9 +224,13 @@ class HasRootMembership(BaseOwnerCondition):
         return super()._identity + (self.is_outside_collaborator,)
 
     def get_memberships_q(self, context: Context) -> Q:
-        owner = get_object_relation(context.resource, self.relation)
+        if isinstance(context.resource, Model):
+            owner = get_object_relation(context.resource, self.relation)
 
-        q = Q(user_group=owner) if self.relation_is_user_group else Q(user_group__owner=owner)
+            q = Q(user_group=owner) if self.relation_is_user_group else Q(user_group__owner=owner)
+        else:
+            # else we assume context.resource is a Model class and there's no point in filtering for the owner
+            q = Q(user_group__kind=UserGroup.KINDS.ROOT)
 
         q &= Q(user=context.actor)
 
@@ -235,9 +239,24 @@ class HasRootMembership(BaseOwnerCondition):
 
         return q
 
-    def get_resources_q(self, _: Context) -> Q:
+
+    def get_resources_q(self, context: Context) -> Q:
         user_groups_relation = "owned_user_groups__" if not self.relation_is_user_group else ""
         relation = "" if self.relation == "*" else f"{self.relation}__"
+
+        if isinstance(context.memberships, list) or (
+            isinstance(context.memberships, QuerySet) and context.memberships._result_cache is not None
+        ):
+            user_groups = []
+
+            for membership in context.memberships:
+                if self.is_outside_collaborator is not None and self.is_outside_collaborator != membership.is_outside_collaborator:
+                    continue
+
+                if membership.user_id == context.actor.pk and membership.user_group.kind == "root":
+                    user_groups.append(membership.user_group)
+
+            return Q(**{f"{relation}{user_groups_relation}in": user_groups})
 
         query = {
             f"{relation}{user_groups_relation}memberships__user": self.actor,

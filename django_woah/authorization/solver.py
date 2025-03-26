@@ -150,8 +150,7 @@ class AuthorizationSolver:
         if isinstance(resource, Model):
             scheme = self.get_auth_scheme_for_model(resource.__class__)
         else:
-            # TODO: Currently scheme/conditions get_memberships_q assume there is a specific resource, not a Model
-            raise NotImplementedError
+            scheme = self.get_auth_scheme_for_model(resource)
 
         if not context.actor:
             context.actor = get_user_model()(pk=FakePK(-1))
@@ -460,20 +459,6 @@ class AuthorizationSolver:
             perms_by_actor_resource[key] = perms
 
         return perms_by_actor_resource
-
-        """
-        Fetch all assigned_perms, all memberships...
-        For now we don't do multiple actors...
-        What about multiple resources? It's kind of the whole point... Well not really but would be quite nice...
-            The problem is, how do we get memberships by resource???
-                We could avoid this entirely and mention that memberships should only be used for verifying... well memberships.
-                    Which is not that great... it kind of works if resources all have the same owner.
-                    But there might be other arbitrary distinctions that are not implemented in the standard conditions.
-                        For now maybe it's best to leave this detail to whoever implements membership logic...
-                            It's their job to decide memberships based on resources...
-        """
-
-        pass
 
 
 # def gather_schemes():
