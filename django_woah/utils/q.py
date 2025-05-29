@@ -18,8 +18,6 @@ import re
 import time
 
 from django.db.models import Q
-from sympy import And, Or, Not, simplify_logic, Symbol
-from sympy.logic.boolalg import BooleanTrue, BooleanFalse
 from typing import Optional, Iterable
 
 
@@ -182,58 +180,6 @@ def _number_to_letters(n, max_length=None):
     return result
 
 
-def get_sympy_symbols_to_q_children(q: Q, symbols_table: Optional[dict] = None) -> dict:
-    initial = False
-
-    if symbols_table is None:
-        initial = True
-        symbols_table = {}
-
-    for child in q.children:
-        if isinstance(child, Q):
-            get_sympy_symbols_to_q_children(child, symbols_table)
-
-        else:
-            # key = f"{child[0]}={re.sub(whitespace_re, '', child[1].__repr__())}"
-            try:
-                child_hash = child.__hash__()
-            except TypeError:
-                child_hash = f"{child[0]}={child[1].__repr__()}".__hash__()
-
-            key = _number_to_letters(child_hash, max_length=3)
-            while key in symbols_table and symbols_table[key] != child:
-                key += _number_to_letters(key.__hash__(), max_length=1)
-
-            symbols_table[key] = child
-
-    if initial:
-        symbols_table = {
-            # TODO: use different rule than _number_to_letters to use all single letter symbols first
-            Symbol(_number_to_letters(n)): v
-            for n, v in enumerate(symbols_table.values())
-        }
-
-    return symbols_table
-
-
-def get_expression(q: Q, q_children_to_sympy_symbols: dict):
-    expression_node = And if q.connector == q.AND else Or
-
-    expressions = []
-
-    for child in q.children:
-        if isinstance(child, Q):
-            expressions.append(get_expression(child, q_children_to_sympy_symbols))
-        else:
-            expressions.append(q_children_to_sympy_symbols[child])
-
-    result = expression_node(*expressions)
-    if q.negated:
-        result = Not(result)
-
-    return result
-
-
 def _prepare_q(q: Q, initial=True) -> Q:
     q = Q(
         *(
@@ -254,49 +200,6 @@ def _prepare_q(q: Q, initial=True) -> Q:
         return q.children[0]
 
     return q
-
-
-def _sympy_expression_to_q(
-    expression, sympy_symbols_to_q_children: dict, _toplevel=False
-) -> bool | Q:
-    if isinstance(expression, (bool, BooleanTrue, BooleanFalse)):
-        return bool(expression)
-
-    if isinstance(expression, Not):
-        # Theoretically not possible to have not with more than 1 arg
-        arg = _sympy_expression_to_q(expression.args[0], sympy_symbols_to_q_children)
-        if isinstance(arg, Q):
-            arg.negated = not arg.negated
-
-            return arg
-
-        else:
-            return not arg
-
-    if isinstance(expression, Symbol):
-        return (
-            sympy_symbols_to_q_children[expression]
-            if not _toplevel
-            else Q(sympy_symbols_to_q_children[expression])
-        )
-
-    connector = Q.AND if isinstance(expression, And) else Q.OR
-
-    return Q(
-        *[
-            _sympy_expression_to_q(arg, sympy_symbols_to_q_children)
-            for arg in expression.args
-        ],
-        _connector=connector,
-    )
-
-
-def sympy_expression_to_q(
-    expression, sympy_symbols_to_q_children: dict, _toplevel=False
-) -> bool | Q:
-    return _sympy_expression_to_q(
-        expression, sympy_symbols_to_q_children, _toplevel=True
-    )
 
 
 def optimize_q(q: Optional[Q], allow_bools=True) -> Q | bool | None:
@@ -610,46 +513,3 @@ def repr_q(q: Q) -> str:
         extras += ", _negated=True"
 
     return f"Q({', '.join(reprs)}{extras})"
-
-
-def _old_optimize_q(q: Optional[Q], allow_bools=True, form="dnf") -> Q | bool | None:
-    """
-    DEPRECATED and TO BE REMOVED SOON
-
-    This is a previous version of optimize_q which used to work based on sympy's simplify_logic, but that was slow
-    and didn't do much (or anything) for q's containing more than 8 unique constraints, and even then, it didn't do
-    a good job anyway... for example it generated:
-        (
-         U0."owner_id" = 1 OR
-         (U2."kind" = 'root' AND U3."user_id" = 1 AND U0."owner_id" IN (5)) OR
-         (U2."kind" = 'root' AND U3."user_id" = 1 AND U0."id" IN (10, 6))
-        )
-    when it could generate
-        (
-         U0."owner_id" = 1 OR
-         (
-          U2."kind" = 'root' AND U3."user_id" = 1 AND
-          (U0."id" IN (10, 6) OR U0."owner_id" IN (5))
-        )
-    """
-    if not q:
-        return None
-
-    q = _prepare_q(q)
-
-    sympy_to_q_children = get_sympy_symbols_to_q_children(q)
-    q_children_to_sympy = {value: key for key, value in sympy_to_q_children.items()}
-
-    expression = get_expression(q, q_children_to_sympy_symbols=q_children_to_sympy)
-    simplified_expression = simplify_logic(expression, form=form)
-
-    result = sympy_expression_to_q(simplified_expression, sympy_to_q_children)
-
-    if not allow_bools:
-        if result is False:
-            return None
-
-        if q is True:
-            return Q()
-
-    return result
