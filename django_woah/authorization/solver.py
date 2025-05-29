@@ -83,7 +83,14 @@ class AuthorizationSolver:
                 if dirty_perm == perm:
                     return perm, scheme
 
-        raise ValueError(f"Unexpected perm received: {dirty_perm}")
+        extra = ""
+        if isinstance(dirty_perm, PermEnum):
+            if hasattr(dirty_perm, "auth_scheme"):
+                extra = f". Maybe you forgot to pass the {dirty_perm.auth_scheme} class when initializing the {self}?"
+            else:
+                extra = f". Maybe you mistyped the class name where you defined {dirty_perm}?"
+
+        raise ValueError(f"Unexpected perm received: {dirty_perm}{extra}")
 
     def get_assigned_perms_q(self, root_context: Context | CombinedContext) -> Optional[Q]:
         contexts = (
