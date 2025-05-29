@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 N/A
 
 
+## [0.4.1] - 2025-05-29
+### Changed
+- The `get_memberships_q` method is now expected to work/be implemented for the case when the `resource` is a Model class. **Potentially Breaking Change**
+- Optimize a query away when using PermissionField in DRF.
+- Better explain cases when catching an unidentified perm being used.
+- Slight adjustment of get_perms_pseudo_hierarchy, in order to push roles more at the top of the list.
+
+### Removed
+- Removed sympy as dependency and the related utils that revolved around it
+
+### Fixed
+- Fixed the validation of borrowed perms in TransitiveFromRelationPerms
+
+
 ## [0.4.0] - 2025-03-18
 With this release, a few more shortcomings and limitations have been knocked out.
 
