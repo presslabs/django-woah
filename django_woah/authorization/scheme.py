@@ -314,7 +314,7 @@ class ModelAuthorizationScheme(AuthorizationScheme):
         counter = Counter(perms)
         for perm in counter:
             if perm.is_role:
-                counter[perm] -= 1
+                counter[perm] -= 3
 
         return counter
 
