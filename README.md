@@ -176,9 +176,13 @@ To see more code in action you can check the [examples](https://github.com/press
   - Additionally, implicit Conditions may be applied at the AuthorizationScheme level, including to the already directly AssignedPerms.
 - An `AuthorizationSolver` glues together the user-defined AuthorizationSchemes. It's responsible for enforcing authorization.
 - A `Context` consists mostly of an actor, permissions and a resource, and an optional `extra` field. It acts both as a query and state, and it's passed to the AuthorizationSolver.
-- `Conditions` are usually evaluated by their `resources_q` method, which returns a Django `Q` that matches the resources (filtering out the ones the actor is not authorized for). 
-  - They may optionally implement an `assigned_perms_q` method to prefetch any AssignedPerms from the database that might be used in the `resources_q` method.
-  - In the current version, there is also an `is_authorized_for_unsaved_resource` method, that is used for as you might have guessed, resources that have not yet been saved to the database.
+- `Conditions` are what authorization is granted (or not) on.
+  - Each condition usually implements two important methods:
+    - the `get_resources_q` method, which returns a Django `Q` that filters the resources that match the condition, and is the one used when fetching resources from the DB;
+    - the `verify_authorization` method (name is subject to change), which returns a `bool`, and is used to verify the condition for prefetched or about to be created resources.
+  - Optionally, but more usual than not, there are two other methods which may be implemented:
+      - the `get_assigned_perms_q` method, which is used to prefetch any `AssignedPerms` from the database, that might be of use in the previously mentioned important methods;
+      - the `get_memberships_q` method, which is used to prefetch any `Memberships` from the database; although it may be used in `get_resources_q`, it's more commonly used in the `verify_authorization` methods that belong to conditions related to memberships. 
 
 
 ## Performance
