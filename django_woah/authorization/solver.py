@@ -22,6 +22,7 @@ from django.utils.functional import lazy
 
 from django_woah.models import AssignedPerm, Membership
 from django_woah.utils.q import merge_qs, optimize_q, pop_parts_of_q, repr_q
+from . import KnowledgeBase
 from .context import Context, CombinedContext
 from .enum import PermEnum
 from .scheme import ModelAuthorizationScheme
@@ -313,6 +314,11 @@ class AuthorizationSolver:
             subcontext.actor = actor_class(id=actor_id)
             subcontext.assigned_perms = context_data["assigned_perms"]
             subcontext.memberships = context_data["memberships"]
+            # We replace the root as calling subcontext again would result in reusing the assigned_perms/memberships/KB
+            # of the root context, and that results in using assigned_perms/memberships meant for other actors.
+            # TODO: Decide if it's a good idea to implicitly pass assigned_perms/memberships/KB inside .subcontext()
+            #       to the resulting subcontext. In that way we can then avoid erasing the ._root context reference.
+            subcontext._root = None
 
             if scheme.verify_authorization(subcontext):
                 authorized_actors_ids.append(actor_id)
