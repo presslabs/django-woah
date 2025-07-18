@@ -47,7 +47,7 @@ def merge_qs(
 
             result.connector = Q.AND
             break
-    else:
+    elif result is not None:
         result.connector = connector
 
     return result
