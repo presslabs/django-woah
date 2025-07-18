@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 N/A
 
 
+## [0.4.2] - 2025-07-18
+### Fixed
+- Fixed `AuthorizationSolver.get_actors_q` not properly enforcing auth in most cases. This was caused by not separating the used contexts from the root context, which caused the wrong AssignedPerms/Memberships to propagate to third level and deeper subcontexts. A better way to handle this may be implemented in the future. **Critical**
+- Fixed a potential AttributeError in merge_qs util.
+
+
 ## [0.4.1] - 2025-05-29
 ### Changed
 - The `get_memberships_q` method is now expected to work/be implemented for the case when the `resource` is a Model class. **Potentially Breaking Change**
