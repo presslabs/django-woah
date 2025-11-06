@@ -385,7 +385,6 @@ class AuthorizationViewSetMixin:
             actor=root_context.contexts[0].actor, perm=None, resource=resource
         )
         context.assigned_perms = context_for_memberships.assigned_perms
-
         context.memberships = list(
             [
                 m
@@ -420,6 +419,10 @@ class AuthorizationViewSetMixin:
 
         lookup_url_kwarg = self.get_authorized_model_lookup_url_kwarg()
         if lookup_url_kwarg and self.kwargs.get(lookup_url_kwarg) is None:
+            print(
+                f"No kwarg found for given lookup_url_kwarg `{lookup_url_kwarg}`.\n"
+                f"Check if URL parameter name matches the view lookup_url_kwarg."
+            )
             return None
 
         queryset = self.authorization_model.objects.filter(
@@ -475,7 +478,11 @@ class AuthorizationViewSetMixin:
         For example:
         - when reverse relations should be part of the validation, because those are not handled here.
             - using the `unsaved_object_relation` field, in the AuthorizationScheme, might help in some of these cases
-        - when certain fields fail validation (even if that case should result in a validation error eventually).
+        - when certain fields fail the serializer validation
+            - usually these cases are allowed to pass authorization so that they may fail the validation process down
+              the line and return proper validation errors instead of ambiguously failing authorization; still some
+              quirky code may possibly cause the validation not to fail... which would be considered a logic error in
+              the validation process, but still is worth mentioning here.
         """
 
         raise_exception = getattr(settings, validation_error_setting, True)

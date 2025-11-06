@@ -182,7 +182,7 @@ class AssignedPerm(AutoCleanModel):
     def __str__(self):
         target = "*" if not self.object_id else f"{self.content_type, self.object_id}"
 
-        return f"<{self.perm}>, target:<{target}>, for:<{self.user_group}>"
+        return f"<{self.perm}>, resource:<{target}>, user_group:<{self.user_group}>"
 
     def full_clean(self, *args, **kwargs):
         resource_data = [self.content_type, self.object_id]
@@ -250,6 +250,9 @@ class Membership(AutoCleanModel):
             raise ValidationError("A root_user_group must be specified.")
 
         self.root_user_group = root_user_group
+
+    def __str__(self):
+        return f"user:<{self.user}>, user_group:<{self.user_group}>, is_outside_collaborator:<{self.is_outside_collaborator}>"
 
 
 def get_root_user_group(owner) -> UserGroup:
