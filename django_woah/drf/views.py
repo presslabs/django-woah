@@ -78,7 +78,7 @@ class AuthorizationViewSetMixin:
 
     @property
     def model(self) -> type[Model]:
-        if queryset := getattr(self, "queryset", None):
+        if (queryset := getattr(self, "queryset", None)) is not None:
             return queryset.model
 
         if serializer_class := self.get_serializer_class():
