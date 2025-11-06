@@ -264,25 +264,10 @@ class AuthorizationSolver:
 
         return model
 
-    def get_actors_q(self, context: Context) -> Optional[Q]:
-        if context.actor is not None:
-            raise ValueError("Must not specify context actor")
-
-        if not context.resource:
-            raise ValueError("Must specify context resource")
-
-        if context.assigned_perms is None:
-            raise ValueError("Must specify context assigned_perms")
-
-        if context.memberships is None:
-            raise ValueError("Must specify context memberships")
-
-        model = self.get_model(context.resource)
-        scheme = self.get_auth_scheme_for_model(model)
-
+    def _split_assigned_perms_and_memberships_by_actor_id(self, assigned_perms, memberships):
         assigned_perms_by_user_group_id = {}
 
-        for assigned_perm in context.assigned_perms:
+        for assigned_perm in assigned_perms:
             if assigned_perm.user_group_id not in assigned_perms_by_user_group_id:
                 assigned_perms_by_user_group_id[assigned_perm.user_group_id] = [assigned_perm]
             else:
@@ -290,7 +275,7 @@ class AuthorizationSolver:
 
         actors_context_data = {}
 
-        for membership in context.memberships:
+        for membership in memberships:
             actor_id = membership.user_id
 
             if not actors_context_data.get(actor_id):
@@ -306,10 +291,75 @@ class AuthorizationSolver:
                     assigned_perms_by_user_group_id.get(membership.user_group_id, [])
                 )
 
+        return actors_context_data
+
+    def get_actors_q(self, context: Context, restrict_to_actors: Optional[list | QuerySet] = None) -> Optional[Q]:
+        """
+        !!! WARNING !!!
+        Although this method will never return false positives, in some cases it's results will include FALSE NEGATIVES,
+        meaning actors which would pass verify_authorization(context) might not be included in the result.
+
+        Here are the known cases for which this method will return false negatives (there might be unknown cases too):
+        - Usage of conditions that access context.actor to form the .get_resources_q() result. Examples:
+            - QCondition(some_field=context.actor)
+            - Custom conditions which use context.actor to form get_resources_q, but don't fetch assigned perms or
+              memberships that match the context.actor:
+                  def get_resources_q(context): return Q(**{self.account_owner_relation: context.actor})
+
+        Therefore, it is best not to verify authorization based on it (use verify_authorization for that), but rather
+        use it for some displaying purposes where false negatives might not be a huge issue.
+
+        However, there is a workaround available:
+            1. Using the `restrict_to_actors` parameter to verify against a prefetched set of Actors (the UserModel must be
+                have the fields used in authorization prefetched, meaning for common cases the the ID is usually enough,
+                unless you are verifying against emails, usernames, countries etc...).
+
+                Do note that you may pass the entire set of potential models, meaning <UserModel>.objects.all(), but this
+                will be horribly slow, so you'll avoid this for most use cases.
+
+            <2. See the TODO below>
+        """
+
+        # TODO: Implement a different solution to avoid false negatives:
+        #       1. Add get_potential_actors_q for conditions and implement where needed. This should highly reduce
+        #          the false negatives to extreme cases, maybe no case if the method will always be implemented when
+        #          required.
+        #          The default implementation could attempt to check if the known cases match (see if context.actor was
+        #          used) and raise a NotImplementedError
+
+        if context.actor is not None:
+            raise ValueError("Must not specify context actor")
+
+        if not context.resource:
+            raise ValueError("Must specify context resource")
+
+        if context.assigned_perms is None:
+            raise ValueError("Must specify context assigned_perms")
+
+        if context.memberships is None:
+            raise ValueError("Must specify context memberships")
+
+        model = self.get_model(context.resource)
+        scheme = self.get_auth_scheme_for_model(model)
+
+        actors_context_data = self._split_assigned_perms_and_memberships_by_actor_id(
+            assigned_perms=context.assigned_perms,
+            memberships=context.memberships,
+        )
+        if restrict_to_actors is None:
+            actor_ids = actors_context_data.keys()
+        else:
+            actor_ids = [actor.id for actor in restrict_to_actors]
+
         actor_class = get_user_model()
         authorized_actors_ids = []
 
-        for actor_id, context_data in actors_context_data.items():
+        for actor_id in actor_ids:
+            context_data = actors_context_data.get(actor_id, {
+                "assigned_perms": [],
+                "memberships": []
+            })
+
             subcontext = context.subcontext()
             subcontext.actor = actor_class(id=actor_id)
             subcontext.assigned_perms = context_data["assigned_perms"]
@@ -328,10 +378,10 @@ class AuthorizationSolver:
 
         return Q(pk__in=authorized_actors_ids)
 
-    def get_actors_queryset(self, context: Context):
+    def get_actors_queryset(self, context: Context, restrict_to_actors: Optional[list | QuerySet] = None) -> QuerySet:
         actor_class = get_user_model()
 
-        q = self.get_actors_q(context)
+        q = self.get_actors_q(context, restrict_to_actors)
         if q is None:
             return actor_class.objects.none()
 
@@ -358,7 +408,7 @@ class AuthorizationSolver:
         context: Optional[Context | CombinedContext] = None,
         base_queryset=None,
         **kwargs,
-    ):
+    ) -> QuerySet:
         if not context:
             context = self.get_context(**kwargs)
 
