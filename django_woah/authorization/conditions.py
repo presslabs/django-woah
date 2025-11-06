@@ -449,7 +449,10 @@ class HasRelatedResourcePerms(Condition):
     def verify_authorization(self, context: Context) -> bool:
         relation = self.relation if context.resource.pk else self.unsaved_object_relation
 
-        resource = get_object_relation(context.resource, relation)
+        try:
+            resource = get_object_relation(context.resource, relation)
+        except ObjectDoesNotExist:
+            return False
 
         if not resource:
             return False
