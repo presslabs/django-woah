@@ -578,6 +578,17 @@ class QCondition(Condition):
         return self.q.__repr__()
 
 
+class Unauthorized(Condition):
+    def _get_atoms(self, context):
+        return Atom((context.actor, context.perm, _resource_to_atom(context.resource)) + self._identity)
+
+    def get_resources_q(self, _: Context) -> None:
+        return None
+
+    def __repr__(self):
+        return Unauthorized
+
+
 def _class_fq(klass):
     return f"{klass.__module__}.{klass.__qualname__}"
 

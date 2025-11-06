@@ -25,6 +25,8 @@ class TruthBearer(Generic[T]):
     # Class is subject to change
 
     def __init__(self, *args: T, operator=OP.AND, truth=True):
+        # TODO: Maybe rename self.truth to self.boolean or something similar, since Unauthorized always returning False
+        #       sounds like a double negation and may lead to confusion.
         self.truth = truth
         self.operator = operator
         self.identity: tuple[T, ...] = tuple(args)
