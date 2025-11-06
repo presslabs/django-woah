@@ -220,9 +220,12 @@ class HasRootMembership(BaseOwnerCondition):
     def _identity(self) -> tuple:
         return super()._identity + (self.is_outside_collaborator,)
 
-    def get_memberships_q(self, context: Context) -> Q:
+    def get_memberships_q(self, context: Context) -> Optional[Q]:
         if isinstance(context.resource, Model):
-            owner = get_object_relation(context.resource, self.relation)
+            try:
+                owner = get_object_relation(context.resource, self.relation)
+            except ObjectDoesNotExist:
+                return None
 
             q = Q(user_group=owner) if self.relation_is_user_group else Q(user_group__owner=owner)
         else:
