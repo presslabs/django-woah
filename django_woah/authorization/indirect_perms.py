@@ -107,7 +107,7 @@ class TransitiveFromRelationPerms(IndirectPerms):
         if not self.restrict_to_perms:
             self.restrict_to_perms = set(self.scheme.get_scheme_perms())
         else:
-            self.restrict_to_perms = self.restrict_to_perms.intersection(self.scheme.get_scheme_perms())
+            self.restrict_to_perms = self.restrict_to_perms.intersection(set(self.scheme.get_scheme_perms()))
 
         self.relation_scheme = self.scheme.get_auth_scheme_by_relation(self.relation)
 
