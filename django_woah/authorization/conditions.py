@@ -101,6 +101,13 @@ class CombinedCondition(Condition):
         self.conditions = conditions
         self.operation = operation
 
+        if self.operation == self.OPERATIONS.AND:
+            self._q_connector = Q.AND
+        elif self.operation == self.OPERATIONS.OR:
+            self._q_connector = Q.OR
+        else:
+            raise ValueError("Unexpected Condition operation")
+
         super().__init__(**kwargs)
 
     @property
@@ -108,23 +115,13 @@ class CombinedCondition(Condition):
         return super()._identity + (self.operation, *(sorted(condition._identity for condition in self.conditions)))
 
     def get_resources_q(self, context: Context) -> Optional[Q]:
-        result = Q()
+        if not self.conditions:
+            raise ValueError("Found CombinedCondition with no conditions")
 
-        for condition in self.conditions:
-            q = condition.get_resources_q(context)
-
-            if self.operation == self.OPERATIONS.AND:
-                if q is None:
-                    return None
-
-                result &= q
-            elif self.operation == self.OPERATIONS.OR:
-                if q is not None:
-                    result |= q
-            else:
-                raise ValueError("Unexpected Condition operation")
-
-        return result
+        return merge_qs(
+            [condition.get_resources_q(context) for condition in self.conditions],
+            connector=self._q_connector,
+        )
 
     def get_assigned_perms_q(self, context: Context) -> Optional[Q]:
         qs = [
@@ -158,7 +155,7 @@ class CombinedCondition(Condition):
 
     def verify_authorization(self, context: Context) -> bool:
         if not self.conditions:
-            return True
+            raise ValueError("Found CombinedCondition with no conditions")
 
         for condition in self.conditions:
             ok = condition.verify_authorization(context)
