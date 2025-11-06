@@ -199,7 +199,8 @@ class AssignedPerm(AutoCleanModel):
         try:
             self.owner
         except AssignedPerm.owner.RelatedObjectDoesNotExist:
-            self.owner = self.user_group.owner
+            if not self.resource:
+                self.owner = self.user_group.owner
 
         return super().full_clean(*args, **kwargs)
 
@@ -364,11 +365,9 @@ def assign_perm(perm, to_user, on_account, for_resource=None) -> AssignedPerm:
     kwargs = {
         "user_group": user_group,
         "perm": perm,
+        "owner": on_account,
     }
     if for_resource:
         kwargs["resource"] = for_resource
 
-    return AssignedPerm.objects.create(
-        user_group=get_single_user_user_group(related_to_user=to_user, owned_by_account=on_account),
-        perm=perm,
-    )
+    return AssignedPerm.objects.create(**kwargs)
