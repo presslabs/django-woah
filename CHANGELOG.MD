@@ -9,7 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 N/A
 
 
-## [0.4.2] - 2025-07-18
+## [0.5.0] - 2025-11-07 **Critical**
+### Fixed
+- Fixed a case where `CombinedConditions` would cause false positives. **Critical**
+- Fixed the `assign_perm` helper ignoring for_resource and on_account params. **Critical**
+- Handle ObjectDoesNotExist in HasRelatedResourcePerms.
+- Fixed a case where restrict_to_perms is used in TransitiveFromRelationPerms.
+- Handle ObjectDoesNotExist in HasRootMembership.
+- Improved the experimental solver.get_actors_q and mention caveat.
+- Improved DRF View queryset attribute detection.
+
+### Changed
+- For `AssignedPerms`, temporarily require either `resource` or the `non_model_resource_id` field to be specified. **Critical**
+  - This is to avoid false positives caused by `AssignedPerms` with no object_id specified. This limitation will be removed in a future release.
+  - Workaround: For model-wide `AssignedPerms` (`object_id=None`), consider assigning the perm to the resource's owner UserModel instead, and use `IndirectPerms` to indirectly give the perm to the matching resources.
+  ```python
+  # Example
+  class SomeResourceAuthorizationScheme:
+      def get_indirect_perms(self, context: Context) -> list[IndirectPerms]:
+          return [
+              ConditionalPerms(
+                  conditions=[
+                      HasRelatedResourcePerms(
+                          relation=self.owner_relation,
+                          perms=[self.Roles.MEMBERSHIP_MANAGER],
+                      ),
+                  ],
+                  receives_perms=[self.Roles.MEMBERSHIP_MANAGER],
+              )
+          ]
+  ```
+- When creating an AssignedPerm (even via the assign_perm helper) if a resource is given, the owner must be manually specified. **Breaking Change** 
+  - This limitation is in place to prevent an authorization bypass exploit. It will be removed when a proper fix will be published in a future release.
+
+### Added
+- Added an experimental Unauthorized condition.
+- Added some small DX improvements.
+
+
+## [0.4.2] - 2025-07-18 **Critical**
 ### Fixed
 - Fixed `AuthorizationSolver.get_actors_q` not properly enforcing auth in most cases. This was caused by not separating the used contexts from the root context, which caused the wrong AssignedPerms/Memberships to propagate to third level and deeper subcontexts. A better way to handle this may be implemented in the future. **Critical**
 - Fixed a potential AttributeError in merge_qs util.
@@ -33,13 +71,13 @@ N/A
 With this release, a few more shortcomings and limitations have been knocked out.
 
 ## Added
-  - Added an `AuthorizationSolver.get_perms` method for fetching all the permissions an actor has on resource(s).
-  - Added a DRF field called `PermissionsField` which will output all the permissions the user has on the serialized resource.
-    - If it's important, do your own benchmarking, but the performance penalty I encountered is a base of ~20ms, and then about 2ms for each resource in the listing:
-      - ~160ms for the original request, with 20 resources listed;
-      - ~200ms with 30 perms to check for each of the 20 resources (with `PermissionField`); this might be a best-case scenario though...
-  - Added an experimental and subject to change `Context.knowledge_base` that basically retains information in the form of (Actor, Condition, Resource, Truth). It is mainly used for optimization purposes, especially for calling `AuthorizationSolver.get_perms`.
-  - Added an `AuthorizationScheme.get_perms_pseudo_hierarchy` method to roughly determine the hierarchy of perms/roles (higher value means less important). It is mainly used for optimization purposes, especially for calling `AuthorizationSolver.get_perms`.
+- Added an `AuthorizationSolver.get_perms` method for fetching all the permissions an actor has on resource(s).
+- Added a DRF field called `PermissionsField` which will output all the permissions the user has on the serialized resource.
+  - If it's important, do your own benchmarking, but the performance penalty I encountered is a base of ~20ms, and then about 2ms for each resource in the listing:
+    - ~160ms for the original request, with 20 resources listed;
+    - ~200ms with 30 perms to check for each of the 20 resources (with `PermissionField`); this might be a best-case scenario though...
+- Added an experimental and subject to change `Context.knowledge_base` that basically retains information in the form of (Actor, Condition, Resource, Truth). It is mainly used for optimization purposes, especially for calling `AuthorizationSolver.get_perms`.
+- Added an `AuthorizationScheme.get_perms_pseudo_hierarchy` method to roughly determine the hierarchy of perms/roles (higher value means less important). It is mainly used for optimization purposes, especially for calling `AuthorizationSolver.get_perms`.
 
 ### Changed
 - Simplified solver/scheme method names:

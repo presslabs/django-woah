@@ -136,6 +136,8 @@ def test_add_assigned_perm_when_assigned_perm_is_given_on_user_group(
         "resource": f"http://testserver/api/user_groups/{root_org_user_group.id}",
     }
 
+    assert created_assigned_perm.owner == organization
+
 
 # def test_add_assigned_perm_as_root_account_owner(
 #     api_client, account, organization, unrelated_account
