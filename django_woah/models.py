@@ -196,6 +196,17 @@ class AssignedPerm(AutoCleanModel):
                 "Both a resource and a non_model_resource_id may not be specified."
             )
 
+        if not self.resource and not self.non_model_resource_id:
+            print(
+                "For model-wide AssignedPerms (object_id=None), consider assigning the perm to the"
+                "resource's owner model instead, and use IndirectPerms to indirectly give the perm on the"
+                "matching resources. \n"
+                "This limitation will be removed in a future release."
+            )
+            raise ValidationError(
+                "Either a resource or a non model resource id must be specified."
+            )
+
         try:
             self.owner
         except AssignedPerm.owner.RelatedObjectDoesNotExist:
