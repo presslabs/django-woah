@@ -196,12 +196,19 @@ class AssignedPerm(AutoCleanModel):
                 "Both a resource and a non_model_resource_id may not be specified."
             )
 
-        if not self.resource and not self.non_model_resource_id:
+        if (
+            not self.resource
+            and not self.non_model_resource_id
+            and not settings.WOAH_DANGEROUS_ALLOW_UNSPECIFIED_RESOURCE_PERMS
+        ):
             print(
                 "For model-wide AssignedPerms (object_id=None), consider assigning the perm to the"
                 "resource's owner model instead, and use IndirectPerms to indirectly give the perm on the"
-                "matching resources. \n"
-                "This limitation will be removed in a future release."
+                "matching resources.\n"
+                "This limitation is in place to prevent an authorization bypass exploit. It will be removed when a "
+                "proper fix will be published in a future release.\n"
+                "!!! Do not mess with the `WOAH_DANGEROUS_ALLOW_UNSPECIFIED_RESOURCE_PERMS` setting, it only "
+                "temporarily exists to facilitate easier testing !!!"
             )
             raise ValidationError(
                 "Either a resource or a non model resource id must be specified."

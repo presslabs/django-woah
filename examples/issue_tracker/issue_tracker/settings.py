@@ -9,6 +9,7 @@ https://docs.djangoproject.com/en/4.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
+import sys
 
 import os
 
@@ -154,3 +155,6 @@ REST_FRAMEWORK = {
     # "DEFAULT_FILTER_BACKENDS": ("django_filters.rest_framework.DjangoFilterBackend",),
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
 }
+
+
+WOAH_DANGEROUS_ALLOW_UNSPECIFIED_RESOURCE_PERMS = True  # Don't use this in production!!! This is to facilitate the testing of the example app.
