@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "django-woah"
-version = "0.4.2"
-description = "A package intended to aid developers in implementing authorization for Django apps."
+version = "0.5.0"
+description = "A useful package for implementing authorization in your Django apps."
 authors = ["Bogdan Petrea <bogdan@presslabs.com>"]
 maintainers = ["Bogdan Petrea <bogdan@presslabs.com>"]
 readme = "README.md"

@@ -1,5 +1,5 @@
 # django-woah
-A package intended to aid developers in implementing authorization for Django apps.  
+A useful package for implementing authorization in your Django apps.
 
 *This project is developed at [Presslabs](https://www.presslabs.com/).*
 
