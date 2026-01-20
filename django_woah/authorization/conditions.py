@@ -297,7 +297,7 @@ class HasRootMembership(BaseOwnerCondition):
                 return False
 
         # Check for saved/prefetched resource
-        if context.resource.pk:
+        if not context.resource._state.adding:
             for membership in context.memberships:
                 # Although outside collaborator is handled in get_membership_q, those might be retrieved from other
                 # conditions, and so we still need to check...
@@ -505,7 +505,7 @@ class HasUnrelatedResourcePerms(Condition):
         return super()._identity + (self.resource, *self.perms)
 
     def get_resources_q(self, context: Context) -> Optional[Q]:
-        if not isinstance(self.resource, Model) and not self.resource.pk:
+        if not isinstance(self.resource, Model) or self.resource._state.adding:
             # Sometimes self.resource will be a Model class instead of an instance
             # TODO: Also we expect the resource to already be saved, but maybe we could handle the unsaved resource case
             return None

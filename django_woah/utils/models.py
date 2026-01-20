@@ -22,8 +22,8 @@ class AutoCleanModel(models.Model):
     def _init_states(self):
         self.initial_state = self.current_state
 
-        self.cleaned_state = {} if not self.pk else self.initial_state.copy()
-        self.saved_state = {} if not self.pk else self.initial_state.copy()
+        self.cleaned_state = {} if self._state.adding else self.initial_state.copy()
+        self.saved_state = {} if self._state.adding else self.initial_state.copy()
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
