@@ -400,6 +400,9 @@ class HasRelatedResourcePerms(Condition):
             model = self.perms[0].auth_scheme.model
             self.related_scheme = self.scheme.auth_solver.get_auth_scheme_for_model(model)
 
+        if diff := set(self.perms).difference(set(self.related_scheme.get_scheme_perms())):
+            raise AttributeError(f"Condition {self} uses perms {diff} which are not defined or borrowed in {self.related_scheme}")
+
         # TODO: check the relationship all the way, not just the first field
         model = self.scheme.model
         field_name = self.relation.split("__", 1)[0]
@@ -489,11 +492,23 @@ class HasRelatedResourcePerms(Condition):
 
         return f"{self.__class__.__name__}: {model}.{self.relation} < {self.perms}"
 
+    def __str__(self):
+        scheme = f"{self.scheme}." if self.scheme else ""
+        model = self.scheme.model.__name__ if self.scheme else None
+
+        return f"{scheme}{self.__class__.__name__}: {model}.{self.relation} < {self.perms}"
+
 
 class HasUnrelatedResourcePerms(Condition):
     def __init__(self, resource, perms: list[PermEnum], **kwargs):
         if not isinstance(perms, (list, set, tuple)):
             raise ValueError(f"Received perms of type {type(perms)}: {perms}")
+
+        if not perms:
+            raise ValueError(f"Perms must not be empty")
+
+        if resource is None:
+            raise ValueError(f"Missing resource in {self}")
 
         self.resource = resource
         self.perms = perms
