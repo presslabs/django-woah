@@ -520,19 +520,21 @@ class HasUnrelatedResourcePerms(Condition):
         return super()._identity + (self.resource, *self.perms)
 
     def get_resources_q(self, context: Context) -> Optional[Q]:
-        if not isinstance(self.resource, Model) or self.resource._state.adding:
+        if not isinstance(self.resource, Model):
             # Sometimes self.resource will be a Model class instead of an instance
-            # TODO: Also we expect the resource to already be saved, but maybe we could handle the unsaved resource case
             return None
 
         solver = self.scheme.auth_solver
 
-        # TODO: Optimize below into a single queryset that uses filter(pk=self.resource.pk).exists()
-        for perm in self.perms:
-            if not solver.get_resources_queryset(context.subcontext(perm, self.resource)).filter(pk=self.resource.pk).exists():
-                return None
+        if not self.resource._state.adding:
+            # TODO: Optimize below into a single queryset that uses filter(pk=self.resource.pk).exists()
+            for perm in self.perms:
+                if not solver.get_resources_queryset(context.subcontext(perm, self.resource)).filter(pk=self.resource.pk).exists():
+                    return None
 
-        return Q()
+            return Q()
+
+        return Q() if self.verify_authorization(context) else None
 
     def get_assigned_perms_q(self, context: Context) -> Optional[Q]:
         solver = self.scheme.auth_solver
@@ -554,15 +556,11 @@ class HasUnrelatedResourcePerms(Condition):
     def verify_authorization(self, context: Context) -> bool:
         related_scheme = self.scheme.auth_solver.get_auth_scheme_for_model(self.resource.__class__)
 
-        if self.resource.pk:
-            for perm in self.perms:
-                if not related_scheme.verify_authorization(context.subcontext(perm, self.resource)):
-                    return False
+        for perm in self.perms:
+            if not related_scheme.verify_authorization(context.subcontext(perm, resource=self.resource)):
+                return False
 
-            return True
-
-        # TODO: Implement
-        return self.get_resources_q(context) == Q()
+        return True
 
     def __repr__(self):
         return f"{self.__class__.__name__}: {self.resource} < {self.perms}"
