@@ -22,7 +22,7 @@ from django.core.exceptions import ValidationError, ObjectDoesNotExist
 from django.db import models, transaction
 from django.db.models import Q, UniqueConstraint
 
-from django_woah.utils.models import AutoCleanModel
+from django_woah.utils.models import AutoCleanModel, TimestampModelMixin
 
 
 class UserGroupKind(models.TextChoices):
@@ -31,7 +31,7 @@ class UserGroupKind(models.TextChoices):
     USER = "user", "User"
 
 
-class UserGroup(AutoCleanModel):
+class UserGroup(AutoCleanModel, TimestampModelMixin):
     KINDS = UserGroupKind
 
     id = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
@@ -151,7 +151,7 @@ class AssignedPermManager(models.Manager):
 #     OUTSIDE_COLLABORATORS = "outside_collaborators", "Outside Collaborators"
 
 
-class AssignedPerm(AutoCleanModel):
+class AssignedPerm(AutoCleanModel, TimestampModelMixin):
     id = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
 
     user_group = models.ForeignKey(
@@ -223,7 +223,7 @@ class AssignedPerm(AutoCleanModel):
         return super().full_clean(*args, **kwargs)
 
 
-class Membership(AutoCleanModel):
+class Membership(AutoCleanModel, TimestampModelMixin):
     id = models.UUIDField(default=uuid6.uuid7, unique=True, primary_key=True)
 
     user = models.ForeignKey(

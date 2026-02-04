@@ -94,6 +94,14 @@ class AutoCleanModel(models.Model):
         self.is_cleaned = True
 
 
+class TimestampModelMixin(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+
+
 class FakePK(int):
     def is_fake(self):
         return True
