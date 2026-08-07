@@ -12,8 +12,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from collections import defaultdict
-
 from django.conf import settings
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db.models import Model, QuerySet
@@ -32,18 +30,16 @@ from typing import Optional
 
 from django_woah.authorization import (
     PermEnum,
-    AuthorizationScheme,
     ModelAuthorizationScheme,
-    HasSameResourcePerms,
 )
 from django_woah.authorization.context import CombinedContext, Context
 from django_woah.authorization.solver import AuthorizationSolver
 from django_woah.drf.fields import PermissionsField
 from django_woah.drf.permission import IsAuthorized
 from django_woah.models import AssignedPerm
+from django_woah.utils.caching import cached
 from django_woah.utils.q import merge_qs, pop_parts_of_q, optimize_q
 
-uninitialized = object()
 
 validation_error_setting = "AUTHORIZATION_UNSAVED_RESOURCE_VALIDATION_ERRORS"
 clean_unsaved_resource_setting = "AUTHORIZATION_UNSAVED_RESOURCE_CLEAN_BEFORE"
@@ -59,22 +55,6 @@ class AuthorizationViewSetMixin:
     authorization_solver: AuthorizationSolver
 
     permission_classes = [IsAuthenticated, IsAuthorized]
-
-    def __init__(self, *args, **kwargs):
-        self._cache = defaultdict(lambda: uninitialized, {})
-
-        super().__init__(*args, **kwargs)
-
-    cache_separator = object()
-
-    def get_cache_key(self, key, *args, **kwargs):
-        return (
-            (key,)
-            + (self.cache_separator,)
-            + args
-            + (self.cache_separator,)
-            + tuple(sorted(kwargs.items()))
-        )
 
     @property
     def model(self) -> type[Model]:
@@ -158,13 +138,8 @@ class AuthorizationViewSetMixin:
     def get_authorization_context_extra(self, perm: str | PermEnum) -> dict:
         return {}
 
+    @cached
     def get_authorization_context(self) -> CombinedContext:
-        cache_key = self.get_cache_key("get_authorization_context")
-        cached_result = self._cache[cache_key]
-
-        if cached_result is not uninitialized:
-            return cached_result
-
         authorization_context = CombinedContext()
 
         required_perms = self.get_required_permissions()
@@ -237,17 +212,10 @@ class AuthorizationViewSetMixin:
                     )
                 )
 
-        self._cache[cache_key] = authorization_context
-
         return authorization_context
 
+    @cached
     def get_authorization_model_q(self) -> Optional[Q]:
-        cache_key = self.get_cache_key("get_authorization_model_q")
-        cached_result = self._cache[cache_key]
-
-        if cached_result is not uninitialized:
-            return cached_result
-
         qs = []
 
         for context in self.get_authorization_context().contexts:
@@ -266,19 +234,10 @@ class AuthorizationViewSetMixin:
                 }
             )
 
-        self._cache[cache_key] = q
-
         return q
 
+    @cached
     def get_authorization_model_queryset(self, base_queryset=None):
-        cache_key = self.get_cache_key(
-            "get_authorization_model_queryset", base_queryset=base_queryset
-        )
-        cached_result = self._cache[cache_key]
-
-        if cached_result is not uninitialized:
-            return cached_result
-
         queryset = self.authorization_solver.get_resources_queryset(
             context=self.get_authorization_context(),
             base_queryset=base_queryset,
@@ -293,17 +252,10 @@ class AuthorizationViewSetMixin:
                 }
             )
 
-        self._cache[cache_key] = queryset
-
         return queryset
 
+    @cached
     def _expected_to_get_perms(self):
-        cache_key = "_expected_to_get_perms"
-        cached_result = self._cache[cache_key]
-
-        if cached_result is not uninitialized:
-            return cached_result
-
         expected = False
         if hasattr(self, "get_serializer_class"):
             try:
@@ -327,20 +279,13 @@ class AuthorizationViewSetMixin:
                     expected = True
                     break
 
-        self._cache[cache_key] = expected
-
         return expected
 
+    @cached
     def get_base_context_for_get_perms(self):
         """
         Only call this method once filtering based on the authorization has been performed!
         """
-
-        cache_key = "get_base_context_for_get_perms"
-        cached_result = self._cache[cache_key]
-
-        if cached_result is not uninitialized:
-            return cached_result
 
         root_context = self.get_authorization_context()
 
@@ -354,8 +299,6 @@ class AuthorizationViewSetMixin:
             )
             context.assigned_perms = root_context.assigned_perms
             context.memberships = root_context.memberships
-
-            self._cache[cache_key] = context
 
             return context
 
@@ -394,8 +337,6 @@ class AuthorizationViewSetMixin:
             ]
         )
 
-        self._cache[cache_key] = context
-
         return context
 
     def get_perms_for_resource(self, resource):
@@ -406,17 +347,10 @@ class AuthorizationViewSetMixin:
             (self.get_actor(), resource), []
         )
 
+    @cached
     def get_authorization_model_object(
         self, skip_authorization=False
     ) -> Optional[Model]:
-        cache_key = self.get_cache_key(
-            "get_authorization_model_object", skip_authorization=skip_authorization
-        )
-        cached_result = self._cache[cache_key]
-
-        if cached_result is not uninitialized:
-            return cached_result
-
         lookup_url_kwarg = self.get_authorized_model_lookup_url_kwarg()
         if lookup_url_kwarg and self.kwargs.get(lookup_url_kwarg) is None:
             print(
@@ -437,17 +371,10 @@ class AuthorizationViewSetMixin:
 
         obj = queryset.first()
 
-        self._cache[cache_key] = obj
-
         return obj
 
+    @cached
     def get_requested_model_queryset(self):
-        cache_key = self.get_cache_key("get_requested_model_queryset")
-        cached_result = self._cache[cache_key]
-
-        if cached_result is not uninitialized:
-            return cached_result
-
         queryset = getattr(self, "queryset", None)
 
         if self.model == self.authorization_model:
@@ -462,8 +389,6 @@ class AuthorizationViewSetMixin:
                     f"{self.get_authorization_relation()}__in": self.get_authorization_model_queryset()
                 }
             )
-
-        self._cache[cache_key] = queryset
 
         return queryset
 
