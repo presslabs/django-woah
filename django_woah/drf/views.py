@@ -500,7 +500,7 @@ class AuthorizationViewSetMixin:
         try:
             serializer.is_valid(raise_exception=True)
             data = serializer.validated_data
-        except (ValidationError, DjangoValidationError):
+        except (ValidationError, DjangoValidationError, TypeError):
             if raise_exception:
                 raised = True
                 raise
@@ -521,7 +521,11 @@ class AuthorizationViewSetMixin:
             if raised:
                 print(validation_error_message)
 
-        data = {k: v for k, v in data.items() if k not in reverse_relations}
+        data = {
+            k: v
+            for k, v in data.items()
+            if k not in reverse_relations and hasattr(model, k)
+        }
 
         if not initial_obj:
             resource = serializer.Meta.model(**data)
