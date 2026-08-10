@@ -296,32 +296,21 @@ class HasRootMembership(BaseOwnerCondition):
             if not owner.kind == "root":
                 return False
 
-        # Check for saved/prefetched resource
-        if not context.resource._state.adding:
-            for membership in context.memberships:
-                # Although outside collaborator is handled in get_membership_q, those might be retrieved from other
-                # conditions, and so we still need to check...
-                if self.is_outside_collaborator is not None:
-                    if membership.is_outside_collaborator != self.is_outside_collaborator:
-                        continue
+        for membership in context.memberships:
+            # Although outside collaborator is handled in get_membership_q, those might be retrieved from other
+            # conditions, and so we still need to check...
+            if self.is_outside_collaborator is not None:
+                if membership.is_outside_collaborator != self.is_outside_collaborator:
+                    continue
 
-                if isinstance(owner, UserGroup):
-                    if membership.user_group == owner:
-                        return True
-                else:
-                    if membership.user_group.owner_id == owner.pk and membership.user_group.kind == "root":
-                        return True
+            if isinstance(owner, UserGroup):
+                if membership.user_group == owner:
+                    return True
+            else:
+                if membership.user_group.owner_id == owner.pk and membership.user_group.kind == "root":
+                    return True
 
-            return False
-
-        # Check for unsaved resource
-        # TODO: see if the logic for saved/prefetched resource could/should substitute this one
-        query = {"user": self.actor}
-
-        if self.is_outside_collaborator is not None:
-            query["is_outside_collaborator"] = self.is_outside_collaborator
-
-        return owner.memberships.filter(**query).exists()
+        return False
 
 
 class HasSameResourcePerms(Condition):
