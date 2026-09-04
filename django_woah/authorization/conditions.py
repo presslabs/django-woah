@@ -227,6 +227,10 @@ class HasRootMembership(BaseOwnerCondition):
             except ObjectDoesNotExist:
                 return None
 
+            if not owner.pk:
+                # This is mostly for handling the creation of accounts (for the case where they are their own owner)
+                return None
+
             q = Q(user_group=owner) if self.relation_is_user_group else Q(user_group__owner=owner)
         else:
             # else we assume context.resource is a Model class and there's no point in filtering for the owner

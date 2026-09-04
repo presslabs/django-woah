@@ -220,7 +220,7 @@ class ModelAuthorizationScheme(AuthorizationScheme):
         # TODO check if this restriction is ok; also handle list of specific resources
         if isinstance(context.resource, Model):
             if not context.resource.pk:
-                raise ValueError("Encountered context.resource without pk", context.resource)
+                return None
 
             if q is not None:
                 q &= Q(pk=context.resource.pk)

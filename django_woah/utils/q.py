@@ -148,7 +148,7 @@ def _prepare_tuple(t: tuple) -> tuple:
         value = frozenset(value)
 
     if key == "*":
-        return "pk", value.pk
+        return "pk", (value.pk if value else None)
 
     key = key.replace("__*", "").replace("*__", "")
 
