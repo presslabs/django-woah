@@ -25,6 +25,7 @@ from rest_framework.exceptions import (
 )
 from rest_framework.fields import empty
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.serializers import ModelSerializer
 from rest_framework.viewsets import GenericViewSet
 from typing import Optional
 
@@ -430,21 +431,19 @@ class AuthorizationViewSetMixin:
                 raised = True
                 raise
 
-            serializer_fields = serializer.fields
-            data = {}
-
-            for field_name, field in serializer_fields.items():
-                if field.source == "*" or field.read_only:
-                    continue
-
-                if (field_value := field.get_value(self.request.data)) != empty:
-                    try:
-                        data[field.source] = field.to_internal_value(field_value)
-                    except (ValidationError, DjangoValidationError):
-                        continue
+            data = self._get_serialized_data_for_authorization(
+                fields=serializer.fields, data=self.request.data
+            )
         finally:
             if raised:
                 print(validation_error_message)
+
+        if not raised:
+            data.update(
+                self._get_serialized_data_for_authorization(
+                    fields=serializer.fields, data=self.request.data, models_only=True
+                )
+            )
 
         data = {
             k: v
@@ -476,6 +475,29 @@ class AuthorizationViewSetMixin:
                     print(validation_error_message)
 
         return resource
+
+    def _get_serialized_data_for_authorization(self, fields, data, models_only=False):
+        validated_data = {}
+
+        for field_name, field in fields.items():
+            if field.source == "*" or field.read_only:
+                continue
+
+            if (field_value := field.get_value(data)) != empty:
+                try:
+                    if isinstance(field, ModelSerializer):
+                        validated_data[field.source] = field.Meta.model(
+                            field.to_internal_value(field_value)
+                        )
+                    elif not models_only:
+                        validated_data[field.source] = field.to_internal_value(
+                            field_value
+                        )
+
+                except (ValidationError, DjangoValidationError):
+                    continue
+
+        return validated_data
 
     def is_authorized_for_unsaved_resource(self) -> bool:
         # TODO move this in context initialization
