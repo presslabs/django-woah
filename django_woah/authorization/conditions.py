@@ -592,7 +592,7 @@ class Unauthorized(Condition):
         return None
 
     def __repr__(self):
-        return Unauthorized
+        return self.__class__.__name__
 
 
 def _class_fq(klass):
