@@ -16,12 +16,12 @@ from dataclasses import dataclass, field
 
 from django.contrib.auth.models import AbstractUser
 from django.db.models import Model
-from typing import Optional, Union
+from typing import Optional, Union, ClassVar
 
 from django_woah.models import AssignedPerm, Membership
+from django_woah.utils.models import FakePK
 from .enum import PermEnum
 from .knowledge_base import KnowledgeBase
-
 
 uninitialized = object()
 
@@ -38,7 +38,40 @@ class Context:
     _knowledge_base: Optional[KnowledgeBase] = None
     _root: Optional[Union["Context", "CombinedContext"]] = None
 
+    # Don't allow mutating these fields once they are set (although there are some exceptions to this, see __setattr__)
+    _write_once_fields: ClassVar[frozenset[str]] = frozenset({"actor", "perm", "resource"})
+
+    def __setattr__(self, name, value):
+        if name not in self._write_once_fields:
+            return super().__setattr__(name, value)
+
+        current_value = object.__getattribute__(self, name)
+
+        if current_value is None:
+            return super().__setattr__(name, value)
+
+        if name == "actor" and isinstance(current_value.pk, FakePK) and value is None:
+            # Exception: Allow stripping fake actor from context (for convenience purposes)
+            return super().__setattr__(name, value)
+
+        if name == "resource" and issubclass(current_value, Model) and isinstance(value, current_value):
+            # Exception: Allow narrowing down scope to a more "restrictive" resource (for convenience purposes)
+            return super().__setattr__(name, value)
+
+        error_message = f"Context `{name}` field may only be assigned once."
+        solution = (f"Mutating contexts is an anti-pattern that will only eventually lead to subtle bugs.\n"
+                    f"Just create a new Context or use the .subcontext() method of the current context to "
+                    f"obtain an altered context.")
+
+        print(current_value, value)
+        print(f"{error_message}\n{solution}")
+
+        raise AttributeError(error_message)
+
     def subcontext(self, perm: Optional[PermEnum]=uninitialized, resource=uninitialized):
+        # Returns a new Context which is tied to the root Context and can share assigned_perms and memberships to
+        # avoid multiple trips to DB.
+
         if perm is uninitialized:
             perm = self.perm
 
