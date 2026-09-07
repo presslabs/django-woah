@@ -11,6 +11,7 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
+from inspect import isclass
 
 from dataclasses import dataclass, field
 
@@ -54,7 +55,7 @@ class Context:
             # Exception: Allow stripping fake actor from context (for convenience purposes)
             return super().__setattr__(name, value)
 
-        if name == "resource" and issubclass(current_value, Model) and isinstance(value, current_value):
+        if name == "resource" and isclass(current_value) and issubclass(current_value, Model) and isinstance(value, current_value):
             # Exception: Allow narrowing down scope to a more "restrictive" resource (for convenience purposes)
             return super().__setattr__(name, value)
 
